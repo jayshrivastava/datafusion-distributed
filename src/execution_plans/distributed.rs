@@ -10,7 +10,6 @@ use datafusion::error::DataFusionError;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_plan::{DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties};
 use datafusion_proto::physical_plan::PhysicalExtensionCodec;
-use rand::Rng;
 use std::any::Any;
 use std::fmt::Formatter;
 use std::sync::Arc;
@@ -19,8 +18,8 @@ use url::Url;
 
 /// [ExecutionPlan] that executes the inner plan in distributed mode.
 /// Before executing it, two modifications are lazily performed on the plan:
-/// 1. Assigns worker URLs to all the stages. A random set of URLs are sampled from the
-///    channel resolver and assigned to each task in each stage.
+/// 1. Assigns worker URLs to all the stages. URLs are assigned to tasks starting from index 0,
+///    wrapping around the available workers.
 /// 2. Encodes all the plans in protobuf format so that network boundary nodes can send them
 ///    over the wire.
 #[derive(Debug)]
@@ -59,8 +58,7 @@ impl DistributedExec {
                 return Ok(Transformed::no(plan));
             };
 
-            let mut rng = rand::rng();
-            let start_idx = rng.random_range(0..urls.len());
+            let start_idx = 0;
 
             let stage = plan.input_stage();
             let encoded_plan = stage.plan.to_encoded(codec)?;
@@ -126,7 +124,7 @@ impl ExecutionPlan for DistributedExec {
         if partition > 0 {
             // The DistributedExec node calls try_assign_urls() lazily upon calling .execute(). This means
             // that .execute() must only be called once, as we cannot afford to perform several
-            // random URL assignation while calling multiple partitions, as they will differ,
+            // URL assignation while calling multiple partitions, as they will differ,
             // producing an invalid plan
             return exec_err!(
                 "DistributedExec must only have 1 partition, but it was called with partition index {partition}"
