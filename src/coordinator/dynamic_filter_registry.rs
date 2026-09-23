@@ -33,8 +33,8 @@ pub(super) enum DynamicFilterMergeMode {
     /// Wait for any producer to report a complete dynamic filter and forward it.
     /// Used for collect left joins.
     FirstProducerComplete,
-    /// Forward any update received from any producer, merging updates from
-    /// different producers. Used for TopK dynamic filters in aggregates and sorts.
+    /// Forward any update received from any producer, ANDing independently safe bounds
+    /// from different producers. Used for TopK dynamic filters in aggregates and sorts.
     Incremental,
 }
 
@@ -298,6 +298,7 @@ impl DynamicFilterRegistry {
                 .iter()
                 .filter_map(|(_, report)| report.inner_expr.as_deref().cloned())
                 .collect(),
+            mode,
         )
         .map(Box::new);
         let is_complete = mode == DynamicFilterMergeMode::FirstProducerComplete || all_complete;
@@ -373,8 +374,11 @@ impl DynamicFilterRegistry {
     }
 }
 
-/// Merges [`PhysicalExprNode`] together by ORing them.
-fn merge_predicates(mut predicates: Vec<PhysicalExprNode>) -> Option<PhysicalExprNode> {
+/// Intersects independently safe TopK/MIN/MAX bounds; unions join build-side filters.
+fn merge_predicates(
+    mut predicates: Vec<PhysicalExprNode>,
+    mode: DynamicFilterMergeMode,
+) -> Option<PhysicalExprNode> {
     match predicates.len() {
         0 => None,
         1 => predicates.pop(),
@@ -383,7 +387,12 @@ fn merge_predicates(mut predicates: Vec<PhysicalExprNode>) -> Option<PhysicalExp
             expr_type: Some(ExprType::BinaryExpr(Box::new(PhysicalBinaryExprNode {
                 l: None,
                 r: None,
-                op: "Or".to_owned(),
+                op: if mode == DynamicFilterMergeMode::Incremental {
+                    "And"
+                } else {
+                    "Or"
+                }
+                .to_owned(),
                 operands: predicates,
             }))),
         }),
