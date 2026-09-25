@@ -35,10 +35,18 @@
     object.type = "image/svg+xml";
     object.data = source;
     object.className = `${image.className} interactive-dynamic-filtering-figure`.trim();
-    object.style.width = image.style.width || "100%";
-    object.style.height = "auto";
     const [figureWidth, figureHeight] = figureDimensions.get(filename);
-    object.style.aspectRatio = `${figureWidth} / ${figureHeight}`;
+    const presentationFigure = image.closest(
+      "section[data-class~='figure']",
+    );
+    if (presentationFigure) {
+      object.width = figureWidth;
+      object.height = figureHeight;
+    } else {
+      object.style.width = image.style.width || "100%";
+      object.style.height = "auto";
+      object.style.aspectRatio = `${figureWidth} / ${figureHeight}`;
+    }
     object.style.display = "block";
     object.tabIndex = 0;
     object.setAttribute("role", "button");
@@ -127,7 +135,11 @@
   }
 
   function enhanceFigures() {
-    document.querySelectorAll("figure img[src$='.svg']").forEach(enhanceFigure);
+    document
+      .querySelectorAll(
+        "figure img[src$='.svg'], section[data-class~='figure'] img[src$='.svg']",
+      )
+      .forEach(enhanceFigure);
   }
 
   if (document.readyState === "loading") {

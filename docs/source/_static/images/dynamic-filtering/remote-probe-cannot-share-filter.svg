@@ -17,7 +17,7 @@
       .label{fill:#57606a;font-size:12px}
       .small{fill:#57606a;font-size:11px}
       .tiny{fill:#57606a;font-size:10px}
-      .worker{fill:#fff;stroke:#d8dee4;stroke-width:1.5}
+      .worker{fill:#fff;stroke:#afb8c1;stroke-width:1.5;stroke-dasharray:6 5}
       .join{fill:#f6f8fa;stroke:#8b949e;stroke-width:1.5}
       .source{fill:#fff;stroke:#d8dee4;stroke-width:1.5}
       .flow{fill:none;stroke:#8b949e;stroke-width:1.8;marker-end:url(#data-arrow)}

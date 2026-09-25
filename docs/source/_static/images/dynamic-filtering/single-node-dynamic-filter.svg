@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under the Apache License, Version 2.0. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 390" role="img" aria-describedby="desc">
-  <desc id="desc">After a hash join completes its build side, it sends an atomic shared-memory update to the fact scan. The scan preemptively filters A, C, E, and F, then sends only B and D upward to the join.</desc>
+  <desc id="desc">Worker A scans the dimension build side and sends B and D to a hash join on Worker B. Because the hash join and fact-table probe scan share Worker B, the join can send an atomic shared-memory update to the scan. The scan filters A, C, E, and F, then sends only B and D to the join.</desc>
   <defs>
     <marker id="data-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
       <path d="M0 0L8 4L0 8Z" fill="#8b949e"/>
@@ -16,6 +16,8 @@
       .label{fill:#57606a;font-size:12px}
       .small{fill:#57606a;font-size:11px}
       .tiny{fill:#57606a;font-size:10px}
+      .worker{fill:#fff;stroke:#afb8c1;stroke-width:1.5;stroke-dasharray:6 5}
+      .worker-title{fill:#6e7781;font-size:11px;font-weight:700;letter-spacing:.08em}
       .panel{fill:#fff;stroke:#d8dee4;stroke-width:1.5}
       .join{fill:#f6f8fa;stroke:#8b949e;stroke-width:1.5}
       .flow{fill:none;stroke:#8b949e;stroke-width:1.8;marker-end:url(#data-arrow)}
@@ -45,8 +47,8 @@
       @keyframes update{0%,34%{opacity:0}40%,94%{opacity:1}100%{opacity:0}}
       @keyframes unfiltered{0%,48%{opacity:1}54%,94%{opacity:0}100%{opacity:1}}
       @keyframes filtered{0%,48%{opacity:0}54%,94%{opacity:1}100%{opacity:0}}
-      @keyframes buildUp{0%,5%{opacity:0;transform:translate(0,0)}9%,17%{opacity:1;transform:translate(0,0)}28%{opacity:1;transform:translate(170px,-50px)}32%,100%{opacity:0;transform:translate(170px,-50px)}}
-      @keyframes probeUp{0%,58%{opacity:0;transform:translate(0,0)}63%,68%{opacity:1;transform:translate(0,0)}77%{opacity:1;transform:translate(-85px,-50px)}81%,100%{opacity:0;transform:translate(-85px,-50px)}}
+      @keyframes buildUp{0%,5%{opacity:0;transform:translate(0,0)}9%,17%{opacity:1;transform:translate(0,0)}28%{opacity:1;transform:translate(85px,-35px)}32%,100%{opacity:0;transform:translate(85px,-35px)}}
+      @keyframes probeUp{0%,58%{opacity:0;transform:translate(0,0)}63%,68%{opacity:1;transform:translate(0,0)}77%{opacity:1;transform:translate(-85px,-45px)}81%,100%{opacity:0;transform:translate(-85px,-45px)}}
       @keyframes dashFlow{to{stroke-dashoffset:-22}}
       @keyframes progress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
       @media(prefers-reduced-motion:reduce){*{animation:none!important}.unfiltered,.build-packet,.probe-packet{opacity:0}.build-ready,.arrived,.update,.filtered{opacity:1}}
@@ -56,28 +58,33 @@
     <rect width="960" height="390" rx="16" fill="#fbfcfd"/>
     <g aria-label="Animation progress"><rect x="780" y="16" width="150" height="4" rx="2" class="progress-track"/><rect x="780" y="16" width="150" height="4" rx="2" class="progress-fill"/></g>
 
-    <rect x="235" y="30" width="490" height="155" rx="12" class="join"/>
-    <circle cx="265" cy="61" r="15" class="step"/>
-    <text x="265" y="66" class="step-number">3</text>
-    <text x="290" y="66" class="heading">Hash Join</text>
-    <text x="290" y="120" class="small mono">Build-side rows</text>
+    <rect x="40" y="118" width="370" height="165" rx="14" class="worker"/>
+    <text x="58" y="140" class="worker-title">WORKER A</text>
+    <rect x="420" y="30" width="500" height="340" rx="14" class="worker"/>
+    <text x="438" y="53" class="worker-title">WORKER B</text>
+
+    <rect x="435" y="65" width="460" height="135" rx="12" class="join"/>
+    <circle cx="465" cy="96" r="15" class="step"/>
+    <text x="465" y="101" class="step-number">3</text>
+    <text x="490" y="101" class="heading">Hash Join</text>
+    <text x="490" y="145" class="small mono">Build-side rows</text>
     <g class="build-ready">
-      <g class="row keep" transform="translate(430 101)"><rect width="42" height="27" rx="7"/><text x="21" y="18">B</text></g>
-      <g class="row keep" transform="translate(480 101)"><rect width="42" height="27" rx="7"/><text x="21" y="18">D</text></g>
+      <g class="row keep" transform="translate(640 126)"><rect width="42" height="27" rx="7"/><text x="21" y="18">B</text></g>
+      <g class="row keep" transform="translate(690 126)"><rect width="42" height="27" rx="7"/><text x="21" y="18">D</text></g>
     </g>
     <g class="arrived">
-      <text x="290" y="158" class="small mono">Probe-side rows</text>
-      <g class="row keep" transform="translate(430 139)"><rect width="42" height="27" rx="7"/><text x="21" y="18">B</text></g>
-      <g class="row keep" transform="translate(480 139)"><rect width="42" height="27" rx="7"/><text x="21" y="18">D</text></g>
+      <text x="490" y="183" class="small mono">Probe-side rows</text>
+      <g class="row keep" transform="translate(640 164)"><rect width="42" height="27" rx="7"/><text x="21" y="18">B</text></g>
+      <g class="row keep" transform="translate(690 164)"><rect width="42" height="27" rx="7"/><text x="21" y="18">D</text></g>
     </g>
 
-    <path d="M230 235C260 215 335 202 390 185" class="flow"/>
-    <path d="M675 235C665 214 620 201 570 185" class="flow"/>
-    <g transform="translate(205 215)"><g class="packet build-packet"><rect width="54" height="22" rx="7"/><text x="27" y="15">B · D</text></g></g>
+    <path d="M395 205C415 200 425 180 435 160" class="flow"/>
+    <path d="M675 235C665 220 620 210 570 200" class="flow"/>
+    <g transform="translate(370 190)"><g class="packet build-packet"><rect width="54" height="22" rx="7"/><text x="27" y="15">B · D</text></g></g>
     <g transform="translate(650 216)"><g class="packet probe-packet"><rect width="50" height="22" rx="7"/><text x="25" y="15">B · D</text></g></g>
 
     <g class="update">
-      <path d="M725 110H900V210Q900 235 875 235" class="update-flow"/>
+      <path d="M895 125H905V210Q905 235 875 235" class="update-flow"/>
       <circle cx="900" cy="170" r="15" class="step"/>
       <text x="900" y="175" class="step-number">4</text>
       <text x="875" y="160" class="update-label" text-anchor="end">atomic</text>
@@ -85,14 +92,14 @@
       <text x="875" y="191" class="tiny" text-anchor="end">preemptively filters rows</text>
     </g>
 
-    <rect x="65" y="235" width="330" height="115" rx="12" class="panel"/>
-    <circle cx="95" cy="266" r="15" class="step"/>
-    <text x="95" y="271" class="step-number">1</text>
-    <text x="120" y="271" class="heading">Data Source (Build Side: <tspan class="mono">dim</tspan>)</text>
-    <text x="120" y="293" class="label">Filter region = 'EMEA'</text>
-    <g class="row keep" transform="translate(120 307)"><rect width="52" height="30" rx="8"/><text x="26" y="20">B</text></g>
-    <g class="row keep" transform="translate(180 307)"><rect width="52" height="30" rx="8"/><text x="26" y="20">D</text></g>
-    <text x="245" y="327" class="tiny mono">only 2 rows are emitted</text>
+    <rect x="65" y="148" width="330" height="115" rx="12" class="panel"/>
+    <circle cx="95" cy="179" r="15" class="step"/>
+    <text x="95" y="184" class="step-number">1</text>
+    <text x="120" y="184" class="heading">Data Source (Build Side: <tspan class="mono">dim</tspan>)</text>
+    <text x="120" y="206" class="label">Filter region = 'EMEA'</text>
+    <g class="row keep" transform="translate(120 220)"><rect width="52" height="30" rx="8"/><text x="26" y="20">B</text></g>
+    <g class="row keep" transform="translate(180 220)"><rect width="52" height="30" rx="8"/><text x="26" y="20">D</text></g>
+    <text x="245" y="240" class="tiny mono">only 2 rows are emitted</text>
 
     <rect x="435" y="235" width="460" height="115" rx="12" class="panel"/>
     <circle cx="465" cy="266" r="15" class="step"/>
