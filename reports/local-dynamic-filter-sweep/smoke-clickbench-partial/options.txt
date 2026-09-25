@@ -1,0 +1,16 @@
+Options {
+    data: "/instance_storage/bits_cache/datafusion-benchmark-data/clickbench/0-100-date32",
+    output: "reports/local-dynamic-filter-sweep/smoke-clickbench-partial",
+    suite: "clickbench",
+    queries: [
+        "q36",
+    ],
+    iterations: 1,
+    cases: [
+        "Control-on",
+        "B-on",
+    ],
+    reverse_order: false,
+    timeout_seconds: 180,
+    worker: None,
+}

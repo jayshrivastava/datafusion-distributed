@@ -1,0 +1,6 @@
+Options {
+    data: "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+    output: "/home/bits/datafusion-distributed-dev-tools/.data/tpch-sf10-global-hash-filters/candidate-2",
+    iterations: 5,
+    worker: None,
+}

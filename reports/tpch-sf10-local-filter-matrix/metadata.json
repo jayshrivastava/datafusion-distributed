@@ -1,0 +1,86 @@
+{
+  "created": "2026-09-24T14:20:21.137Z",
+  "repo": "/home/bits/datafusion-distributed",
+  "branch": "js/6-apply-merged-filters",
+  "commit": "c0e9548765d419503e0decc7ea9faa0bf7c48403",
+  "git_status": "M benchmarks/README.md\n M tests/clickbench_plans_test.rs\n?? benchmarks/dynamic-filter-join.md\n?? benchmarks/src/bin/\n?? dynamic-filter-updates-plan.md",
+  "data": "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+  "tables": [
+    {
+      "name": "customer",
+      "parquet_files": 16,
+      "bytes": 255612007
+    },
+    {
+      "name": "lineitem",
+      "parquet_files": 16,
+      "bytes": 3811401291
+    },
+    {
+      "name": "nation",
+      "parquet_files": 1,
+      "bytes": 4048
+    },
+    {
+      "name": "orders",
+      "parquet_files": 16,
+      "bytes": 1221904632
+    },
+    {
+      "name": "part",
+      "parquet_files": 16,
+      "bytes": 140532349
+    },
+    {
+      "name": "partsupp",
+      "parquet_files": 16,
+      "bytes": 1126318656
+    },
+    {
+      "name": "region",
+      "parquet_files": 1,
+      "bytes": 1631
+    },
+    {
+      "name": "supplier",
+      "parquet_files": 16,
+      "bytes": 16320521
+    }
+  ],
+  "workers": 4,
+  "worker_threads": 4,
+  "target_partitions": 4,
+  "coordinator_threads": 2,
+  "queries": [
+    "q17",
+    "q18",
+    "q20",
+    "q15"
+  ],
+  "measured_iterations": 10,
+  "warmup_iterations": 1,
+  "metrics_collection": true,
+  "dynamic_filter_collection": true,
+  "parquet_pruning": true,
+  "dynamic_task_count": false,
+  "broadcast_joins": true,
+  "compression": "lz4",
+  "cpu": "Neoverse-N1",
+  "logical_cpus": 16,
+  "total_memory_bytes": 65934987264,
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "generation_command": "target/release/dfbench prepare-tpch --output /instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10 --scale-factor 10 --partitions 16",
+  "build_command": "cargo build -p datafusion-distributed-benchmarks --bin tpch-filter-matrix --release --locked",
+  "finished": "2026-09-24T14:26:53.255Z",
+  "runner_sha256": "49ad778327b7245a449a94af230d68224a86fb7332892d30747e8a14926e7f9d",
+  "binary_sha256": "2f95604c7275cbf0dc671c645e06a0370b32f57f766c48277e1927ddfc186f0a",
+  "library_diff_after": "",
+  "validation": {
+    "total_samples": 132,
+    "measured_samples": 120,
+    "result_equality": true,
+    "all_plans_have_metrics": true,
+    "dynamic_update_counts_match_configuration": true,
+    "runner_rustfmt_check": "passed"
+  }
+}

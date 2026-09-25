@@ -4,6 +4,37 @@ mod tests {
     use datafusion::common::Result;
     use datafusion_distributed::assert_snapshot;
     use datafusion_distributed::test_utils::insta::insta::allow_duplicates;
+    use test_case::test_case;
+
+    /// The merged predicate routes directly to a task's global shuffle partition.
+    /// RainToday also exercises tasks with empty/single-nonempty local partitions.
+    #[test_case("RainToday", false; "empty_partitions")]
+    #[test_case("WindGustDir", false; "flatten_local_cases")]
+    #[test_case("WindGustDir", true; "parquet_pushdown")]
+    #[tokio::test]
+    async fn global_hash_filter(column: &str, pushdown: bool) -> Result<()> {
+        let sql = format!(
+            r#"
+            SELECT COUNT(*) FROM (
+                SELECT DISTINCT "{column}" AS key FROM weather
+            ) build
+            JOIN weather probe ON build.key = probe."{column}"
+        "#
+        );
+        let display = TestQuery::new(&sql)
+            .with_parquet_pushdown(pushdown)
+            .without_dynamic_filter_labels()
+            .expect_dynamic_filter_updates()
+            .execute()
+            .await?;
+        assert!(
+            display.contains("CASE hash_repartition % 6 WHEN 0"),
+            "{display}"
+        );
+        assert!(display.contains("WHEN 5 THEN"), "{display}");
+        assert!(!display.contains("CASE hash_repartition % 3"), "{display}");
+        Ok(())
+    }
 
     /// A Partitioned HashJoinExec propagates dynamic filters to local consumers.
     #[tokio::test]
@@ -51,9 +82,10 @@ mod tests {
             │         DistributedLeafExec:
             │           t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/dim/d_dkey=A/data0.parquet], [/testdata/join/parquet/dim/d_dkey=C/data0.parquet]]}, projection=[env, service, d_dkey], output_partitioning=Range([d_dkey@2 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=service@1 = log, pruning_predicate=service_null_count@2 != row_count@3 AND service_min@0 <= log AND log <= service_max@1, required_guarantees=[service in (log)]
             │           t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/dim/d_dkey=B/data0.parquet], [/testdata/join/parquet/dim/d_dkey=D/data0.parquet]]}, projection=[env, service, d_dkey], output_partitioning=Range([d_dkey@2 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=service@1 = log, pruning_predicate=service_null_count@2 != row_count@3 AND service_min@0 <= log AND log <= service_max@1, required_guarantees=[service in (log)]
-            │       DistributedLeafExec:
-            │         t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=A/data0.parquet], [/testdata/join/parquet/fact/f_dkey=C/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
-            │         t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=B/data0.parquet], [/testdata/join/parquet/fact/f_dkey=D/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+            │       FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_1 ]]}
+            │         DistributedLeafExec:
+            │           t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=A/data0.parquet], [/testdata/join/parquet/fact/f_dkey=C/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2 ], dynamic_rg_pruning=eligible
+            │           t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=B/data0.parquet], [/testdata/join/parquet/fact/f_dkey=D/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_3 ], dynamic_rg_pruning=eligible
             └──────────────────────────────────────────────────
         ");
         }
@@ -89,9 +121,10 @@ mod tests {
             └──────────────────────────────────────────────────
             ┌───── Stage 2 ── tasks=2, partitions=6
             │ RepartitionExec: partitioning=Hash([RainToday@0], 6), input_partitions=3
-            │   DistributedLeafExec:
-            │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
-            │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+            │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
+            │     DistributedLeafExec:
+            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
             └──────────────────────────────────────────────────
         ");
         Ok(())
@@ -128,9 +161,10 @@ mod tests {
             ┌───── Stage 2 ── tasks=2, partitions=3
             │ RepartitionExec: partitioning=Hash([RainToday@0], 3), input_partitions=3
             │   SamplerExec: partitions=3
-            │     DistributedLeafExec:
-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
-            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
+            │       DistributedLeafExec:
+            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
             └──────────────────────────────────────────────────
         ");
         Ok(())
@@ -188,12 +222,15 @@ mod tests {
             ┌───── Stage 2 ── tasks=2, partitions=6
             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=6
             │   DistributedUnionExec: t0:[c0, c2] t1:[c1]
-            │     DistributedLeafExec:
-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ], dynamic_rg_pruning=eligible
-            │     DistributedLeafExec:
-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1_normalized_hash_0 ], dynamic_rg_pruning=eligible
-            │     DistributedLeafExec:
-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindDir9am@7 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2_normalized_hash_0 ], dynamic_rg_pruning=eligible
+            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
+            │       DistributedLeafExec:
+            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1_normalized_hash_0 ], dynamic_rg_pruning=eligible
+            │     FilterExec: task_variants={t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
+            │       DistributedLeafExec:
+            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2_normalized_hash_0 ], dynamic_rg_pruning=eligible
+            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
+            │       DistributedLeafExec:
+            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindDir9am@7 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_3_normalized_hash_0 ], dynamic_rg_pruning=eligible
             └──────────────────────────────────────────────────
         ");
         Ok(())
@@ -261,9 +298,10 @@ mod tests {
               └──────────────────────────────────────────────────
               ┌───── Stage 3 ── tasks=2, partitions=6
               │ RepartitionExec: partitioning=Hash([WindGustDir@0], 6), input_partitions=3
-              │   DistributedLeafExec:
-              │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
-              │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+              │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
+              │     DistributedLeafExec:
+              │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+              │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
               └──────────────────────────────────────────────────
         ");
         Ok(())
@@ -303,8 +341,9 @@ mod tests {
             ┌───── Stage 4 ── tasks=2, partitions=6
             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=3
             │   DistributedUnionExec: t0:[c0] t1:[c1]
-            │     DistributedLeafExec:
-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
+            │       DistributedLeafExec:
+            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
             │     ProjectionExec: expr=[WindGustDir@0 as key]
             │       HashJoinExec: mode=Partitioned, join_type=RightSemi, on=[(key@0, RainToday@1)], projection=[WindGustDir@0]
             │         AggregateExec: mode=FinalPartitioned, gby=[key@0 as key], aggr=[]
@@ -320,9 +359,10 @@ mod tests {
               └──────────────────────────────────────────────────
               ┌───── Stage 3 ── tasks=2, partitions=3
               │ RepartitionExec: partitioning=Hash([RainToday@1], 3), input_partitions=3
-              │   DistributedLeafExec:
-              │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_1 ] AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
-              │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_1 ] AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+              │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_1_hash_2 ] AND DynamicFilter [ expression_id_0_hash_3 ]], t1: [FilterExec: DynamicFilter [ expression_id_1_hash_2 ] AND DynamicFilter [ expression_id_0_hash_3 ]]}
+              │     DistributedLeafExec:
+              │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_4 ] AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+              │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_4 ] AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
               └──────────────────────────────────────────────────
         ");
         Ok(())

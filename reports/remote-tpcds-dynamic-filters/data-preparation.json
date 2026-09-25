@@ -1,0 +1,45 @@
+{
+  "generator": {
+    "binary": "/home/bits/datafusion-distributed/target/release/dfbench",
+    "sha256": "6a5d580eddbab170cfe3982c9a9b43d6739abee8c87d199a8cd74ad7971520d8",
+    "partitions": 16
+  },
+  "jobs": [
+    {
+      "dataset": "tpcds/sf10",
+      "status": "complete",
+      "started_at": "2026-09-25T13:46:44.745Z",
+      "command": [
+        "/home/bits/datafusion-distributed/target/release/dfbench",
+        "prepare-tpcds",
+        "--sf",
+        "10",
+        "--partitions",
+        "16",
+        "--output",
+        "s3://datafusion-bench-datasets-7577d16bcd821c638ceb2c86aa/tpcds/sf10"
+      ],
+      "finished_at": "2026-09-25T13:52:51.005Z",
+      "files": 384,
+      "bytes": 12932037028
+    },
+    {
+      "dataset": "tpcds/sf100",
+      "status": "complete",
+      "started_at": "2026-09-25T13:52:52.221Z",
+      "command": [
+        "/home/bits/datafusion-distributed/target/release/dfbench",
+        "prepare-tpcds",
+        "--sf",
+        "100",
+        "--partitions",
+        "16",
+        "--output",
+        "s3://datafusion-bench-datasets-7577d16bcd821c638ceb2c86aa/tpcds/sf100"
+      ],
+      "finished_at": "2026-09-25T14:35:39.521Z",
+      "files": 384,
+      "bytes": 126883531756
+    }
+  ]
+}

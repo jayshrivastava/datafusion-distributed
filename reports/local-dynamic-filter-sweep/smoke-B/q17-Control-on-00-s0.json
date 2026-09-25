@@ -1,0 +1,543 @@
+{
+  "query": "q17",
+  "case": {
+    "name": "Control-on",
+    "dynamic_filtering": false,
+    "pushdown_filters": true,
+    "reorder_filters": true
+  },
+  "iteration": 0,
+  "statement": 0,
+  "planning_ms": 6.697406,
+  "execution_ms": 2030.85885,
+  "types": [
+    "Float64"
+  ],
+  "rows": [
+    [
+      "3295493.512857143"
+    ]
+  ],
+  "plan": "plans/q17-Control-on-00-s0.txt",
+  "display_error": null,
+  "metrics": [
+    {
+      "index": 0,
+      "node": "DistributedExec",
+      "columns": [
+        "avg_yearly"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "dynamic_filter_global_hash_merges": 0,
+        "dynamic_filter_updates_received": 0,
+        "local_coordinator_channels": 0,
+        "plan_bytes_sent": 118922,
+        "plan_send_latency_avg": 2113000,
+        "plan_send_latency_max": 3768000,
+        "remote_coordinator_channels": 15
+      }
+    },
+    {
+      "index": 1,
+      "node": "ProjectionExec",
+      "columns": [
+        "avg_yearly"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 11667,
+        "end_timestamp": 1790295036726172615,
+        "expr_0_eval_time": 9788,
+        "output_batches": 1,
+        "output_bytes": 8,
+        "output_rows": 1,
+        "start_timestamp": 1790295034747015870
+      }
+    },
+    {
+      "index": 2,
+      "node": "AggregateExec",
+      "columns": [
+        "sum(lineitem.l_extendedprice)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 39967,
+        "end_timestamp": 1790295036726171458,
+        "output_batches": 1,
+        "output_bytes": 16,
+        "output_rows": 1,
+        "start_timestamp": 1790295034746986349
+      }
+    },
+    {
+      "index": 3,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "sum(lineitem.l_extendedprice)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 18929,
+        "end_timestamp": 1790295036726123779,
+        "output_batches": 16,
+        "output_bytes": 1024,
+        "output_rows": 16,
+        "start_timestamp": 1790295034746989311
+      }
+    },
+    {
+      "index": 4,
+      "node": "NetworkCoalesceExec",
+      "columns": [
+        "sum(lineitem.l_extendedprice)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 7376,
+        "elapsed_compute": 577487,
+        "local_connections_used": 0,
+        "max_mem_used": 2899,
+        "msg_count": 32,
+        "network_latency_count": 32,
+        "network_latency_first": 164584939,
+        "network_latency_max": 164584939,
+        "network_latency_min": 395225,
+        "network_latency_p50": 646823,
+        "network_latency_p95": 165067742,
+        "network_latency_sum": 659719963,
+        "output_bytes": 256,
+        "output_rows": 16
+      }
+    },
+    {
+      "index": 5,
+      "node": "AggregateExec",
+      "columns": [
+        "sum(lineitem.l_extendedprice)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 193831,
+        "end_timestamp": 10197976513680671646,
+        "output_batches": 16,
+        "output_bytes": 256,
+        "output_rows": 16,
+        "start_timestamp": 10197976482249719170
+      }
+    },
+    {
+      "index": 6,
+      "node": "HashJoinExec",
+      "columns": [
+        "l_extendedprice"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 0,
+        "avg_fanout": 0,
+        "build_input_batches": 16,
+        "build_input_rows": 61385,
+        "build_mem_used": 7201152,
+        "build_time": 1799851499,
+        "elapsed_compute": 3613271910,
+        "end_timestamp": 10197976494013714376,
+        "input_batches": 272,
+        "input_rows": 2005526,
+        "join_time": 16178978,
+        "output_batches": 16,
+        "output_bytes": 2097152,
+        "output_rows": 5526,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197976482249765192
+      }
+    },
+    {
+      "index": 7,
+      "node": "HashJoinExec",
+      "columns": [
+        "l_quantity",
+        "l_extendedprice",
+        "p_partkey"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 0,
+        "avg_fanout": 0,
+        "build_input_batches": 48,
+        "build_input_rows": 2044,
+        "build_mem_used": 867248,
+        "build_time": 3227183,
+        "elapsed_compute": 390437524,
+        "end_timestamp": 10197976482911040610,
+        "input_batches": 7360,
+        "input_rows": 59986052,
+        "join_time": 384991504,
+        "output_batches": 16,
+        "output_bytes": 5242880,
+        "output_rows": 61385,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197976482249908607
+      }
+    },
+    {
+      "index": 8,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "p_partkey"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 24080,
+        "elapsed_compute": 1485336,
+        "local_connections_used": 3,
+        "max_mem_used": 16404,
+        "msg_count": 72,
+        "network_latency_count": 72,
+        "network_latency_first": 131878453,
+        "network_latency_max": 183787193,
+        "network_latency_min": 110705399,
+        "network_latency_p50": 112002157,
+        "network_latency_p95": 182654261,
+        "network_latency_sum": 1077773263,
+        "output_bytes": 16352,
+        "output_rows": 2044
+      }
+    },
+    {
+      "index": 9,
+      "node": "RepartitionExec",
+      "columns": [
+        "p_partkey"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 115779,
+        "end_timestamp": 12147185373429051552,
+        "fetch_time": 72982905,
+        "output_batches": 48,
+        "output_bytes": 3145728,
+        "output_rows": 2044,
+        "repartition_time": 357037,
+        "send_time": 213839,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 12147185373089275995
+      }
+    },
+    {
+      "index": 10,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "p_partkey"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 1543480,
+        "bytes_scanned": 22921288,
+        "elapsed_compute": 30656,
+        "end_timestamp": 1405415164778271275,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 30,
+        "files_processed": 30,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 8704826,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 16,
+        "output_bytes": 1048576,
+        "output_rows": 2044,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 464395,
+        "page_index_load_skipped": 14,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 2044,
+        "pushdown_rows_pruned": 1997956,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 5654683,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 1405415164625051939,
+        "statistics_eval_time": 1815987,
+        "time_elapsed_opening": 22765719,
+        "time_elapsed_processing": 46430210,
+        "time_elapsed_scanning_total": 50636698,
+        "time_elapsed_scanning_until_data": 49251736
+      }
+    },
+    {
+      "index": 11,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "l_partkey",
+        "l_quantity",
+        "l_extendedprice"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 583974295,
+        "elapsed_compute": 1264011355,
+        "local_connections_used": 4,
+        "max_mem_used": 23075876,
+        "msg_count": 5568,
+        "network_latency_count": 5568,
+        "network_latency_first": 129059146,
+        "network_latency_max": 541351389,
+        "network_latency_min": 3436360,
+        "network_latency_p50": 103025478,
+        "network_latency_p95": 366936072,
+        "network_latency_sum": 64031011618,
+        "output_bytes": 2399442080,
+        "output_rows": 59986052
+      }
+    },
+    {
+      "index": 12,
+      "node": "RepartitionExec",
+      "columns": [
+        "l_partkey",
+        "l_quantity",
+        "l_extendedprice"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 13985232,
+        "end_timestamp": 3898417824519016188,
+        "fetch_time": 1751937387,
+        "output_batches": 7360,
+        "output_bytes": 2411724800,
+        "output_rows": 59986052,
+        "repartition_time": 1015139855,
+        "send_time": 897161245,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898417784600795624
+      }
+    },
+    {
+      "index": 13,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "l_partkey",
+        "l_quantity",
+        "l_extendedprice"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 3102,
+        "bytes_scanned": 1034486591,
+        "elapsed_compute": 12289840,
+        "end_timestamp": 15727775465668522672,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 34,
+        "files_processed": 34,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 4501964,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 7330,
+        "output_bytes": 2399932544,
+        "output_rows": 59986052,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 68,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 0,
+        "pushdown_rows_pruned": 0,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 68,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 15727775447498139352,
+        "statistics_eval_time": 68,
+        "time_elapsed_opening": 7193752,
+        "time_elapsed_processing": 681952061,
+        "time_elapsed_scanning_total": 8996212136,
+        "time_elapsed_scanning_until_data": 548033740
+      }
+    },
+    {
+      "index": 14,
+      "node": "ProjectionExec",
+      "columns": [
+        "Float64(0.2) * avg(lineitem.l_quantity)",
+        "l_partkey"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 36952891,
+        "end_timestamp": 10197976513674745473,
+        "expr_0_eval_time": 36672323,
+        "expr_1_eval_time": 57593,
+        "output_batches": 256,
+        "output_bytes": 300435840,
+        "output_rows": 2000000,
+        "start_timestamp": 10197976482250936150
+      }
+    },
+    {
+      "index": 15,
+      "node": "AggregateExec",
+      "columns": [
+        "l_partkey",
+        "avg(lineitem.l_quantity)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 8509361,
+        "aggregation_time": 11456736183,
+        "elapsed_compute": 11565471575,
+        "emitting_time": 52888990,
+        "end_timestamp": 10197976513674773679,
+        "output_batches": 256,
+        "output_bytes": 797634560,
+        "output_rows": 2000000,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976482250662796,
+        "time_calculating_group_ids": 22505059
+      }
+    },
+    {
+      "index": 16,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "l_partkey",
+        "avg(lineitem.l_quantity)[count]",
+        "avg(lineitem.l_quantity)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 357734800,
+        "elapsed_compute": 1220029754,
+        "local_connections_used": 4,
+        "max_mem_used": 21737337,
+        "msg_count": 5568,
+        "network_latency_count": 5568,
+        "network_latency_first": 187204441,
+        "network_latency_max": 811711075,
+        "network_latency_min": 3303989,
+        "network_latency_p50": 119106566,
+        "network_latency_p95": 429781433,
+        "network_latency_sum": 73195288624,
+        "output_bytes": 1918125536,
+        "output_rows": 59941423
+      }
+    },
+    {
+      "index": 17,
+      "node": "RepartitionExec",
+      "columns": [
+        "l_partkey",
+        "avg(lineitem.l_quantity)[count]",
+        "avg(lineitem.l_quantity)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 20138885,
+        "end_timestamp": 3898417902399763609,
+        "fetch_time": 975353489,
+        "output_batches": 7360,
+        "output_bytes": 1929379840,
+        "output_rows": 59941423,
+        "repartition_time": 828453458,
+        "send_time": 937808098,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898417829365364307
+      }
+    },
+    {
+      "index": 18,
+      "node": "AggregateExec",
+      "columns": [
+        "l_partkey",
+        "avg(lineitem.l_quantity)[count]",
+        "avg(lineitem.l_quantity)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 10327811,
+        "aggregation_time": 102193053,
+        "elapsed_compute": 169845931,
+        "emitting_time": 109580,
+        "end_timestamp": 10197976509676931880,
+        "output_batches": 7330,
+        "output_bytes": 2736725344,
+        "output_rows": 59941423,
+        "reduction_factor": 0,
+        "skipped_aggregation_rows": 58282116,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976482253581761,
+        "time_calculating_group_ids": 14827438
+      }
+    },
+    {
+      "index": 19,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "l_partkey",
+        "l_quantity"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 2842,
+        "bytes_scanned": 540866880,
+        "elapsed_compute": 10634233,
+        "end_timestamp": 15727775517036086365,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 34,
+        "files_processed": 34,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 1678569,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 7330,
+        "output_bytes": 1440155712,
+        "output_rows": 59986052,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 68,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 0,
+        "pushdown_rows_pruned": 0,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 68,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 15727775473699977238,
+        "statistics_eval_time": 68,
+        "time_elapsed_opening": 4849816,
+        "time_elapsed_processing": 393506877,
+        "time_elapsed_scanning_total": 15908851204,
+        "time_elapsed_scanning_until_data": 168466838
+      }
+    }
+  ]
+}

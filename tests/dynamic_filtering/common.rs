@@ -54,6 +54,8 @@ pub(crate) struct TestQuery<'a> {
     collect_dynamic_filters: bool,
     expect_dynamic_filter_updates: bool,
     normalized_filter_hashes: bool,
+    parquet_pushdown: bool,
+    label_dynamic_filters: bool,
 }
 
 impl<'a> TestQuery<'a> {
@@ -67,6 +69,8 @@ impl<'a> TestQuery<'a> {
             collect_dynamic_filters: true,
             expect_dynamic_filter_updates: false,
             normalized_filter_hashes: false,
+            parquet_pushdown: false,
+            label_dynamic_filters: true,
         }
     }
 
@@ -105,6 +109,16 @@ impl<'a> TestQuery<'a> {
         self
     }
 
+    pub(crate) fn with_parquet_pushdown(mut self, enabled: bool) -> Self {
+        self.parquet_pushdown = enabled;
+        self
+    }
+
+    pub(crate) fn without_dynamic_filter_labels(mut self) -> Self {
+        self.label_dynamic_filters = false;
+        self
+    }
+
     /// Adds a normalized hash to the dynamic filter display formatter. See
     /// [`DynamicFilterLabels`] below.
     pub(crate) fn with_normalized_filter_hashes(mut self) -> Self {
@@ -124,6 +138,12 @@ impl<'a> TestQuery<'a> {
         {
             let state = ctx.state_ref();
             let mut state = state.write();
+            state
+                .config_mut()
+                .options_mut()
+                .execution
+                .parquet
+                .pushdown_filters = self.parquet_pushdown;
             let optimizer = &mut state.config_mut().options_mut().optimizer;
             if !self.broadcast_joins {
                 // Force partitioned hash joins.
@@ -139,6 +159,7 @@ impl<'a> TestQuery<'a> {
             self.collect_dynamic_filters,
             self.expect_dynamic_filter_updates,
             self.normalized_filter_hashes,
+            self.label_dynamic_filters,
         )
         .await
     }
@@ -170,7 +191,7 @@ pub(crate) async fn execute_range_partitioned_query(
     register_range_partitioned_table(&ctx, "dim", "testdata/join/parquet/dim", "d_dkey").await?;
     register_range_partitioned_table(&ctx, "fact", "testdata/join/parquet/fact", "f_dkey").await?;
 
-    execute_query_and_display(&ctx, sql, expected_rows, true, false, false).await
+    execute_query_and_display(&ctx, sql, expected_rows, true, false, false, true).await
 }
 
 async fn register_range_partitioned_table(
@@ -204,6 +225,7 @@ async fn execute_query_and_display(
     collect_dynamic_filters: bool,
     expect_dynamic_filter_updates: bool,
     normalized_filter_hashes: bool,
+    label_dynamic_filters: bool,
 ) -> Result<String> {
     set_dynamic_filter_pushdown(ctx, true)?;
     let plan = ctx.sql(sql).await?.create_physical_plan().await?;
@@ -247,6 +269,12 @@ async fn execute_query_and_display(
             updates > 0,
             "expected dynamic_filter_updates_received > 0, got {updates}"
         );
+    }
+    if !label_dynamic_filters {
+        return Ok(display_plan_ascii(
+            plan_with_dynamic_filters.as_ref(),
+            false,
+        ));
     }
     DynamicFilterLabels {
         normalized_predicates: normalized_filter_hashes.then(Vec::new),

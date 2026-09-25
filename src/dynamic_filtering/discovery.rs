@@ -258,7 +258,8 @@ mod tests {
         Stage 4
           RepartitionExec
             AggregateExec
-              DataSourceExec consumers=[1]
+              FilterExec consumers=[1]
+                DataSourceExec consumers=[1]
         Stage 3 remote_producers=[2]
           RepartitionExec
             HashJoinExec producers=[2]
@@ -268,7 +269,8 @@ mod tests {
         Stage 2
           RepartitionExec
             AggregateExec
-              DataSourceExec consumers=[2]
+              FilterExec consumers=[2]
+                DataSourceExec consumers=[2]
         Stage 1
           RepartitionExec
             FilterExec
@@ -316,7 +318,8 @@ mod tests {
         Stage 2
           RepartitionExec
             AggregateExec
-              DataSourceExec consumers=[1]
+              FilterExec consumers=[1]
+                DataSourceExec consumers=[1]
         Stage 1
           RepartitionExec
             AggregateExec

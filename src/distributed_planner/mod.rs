@@ -3,6 +3,8 @@ mod distributed_query_planner;
 mod inject_network_boundaries;
 mod insert_broadcast;
 mod insert_children_isolator_union;
+#[cfg(feature = "parquet")]
+mod insert_post_scan_dynamic_filters;
 mod network_boundary;
 mod normalize_collect_joins;
 mod partial_reduce_below_network_shuffles;

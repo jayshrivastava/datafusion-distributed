@@ -1,0 +1,261 @@
+diff --git a/src/coordinator/dynamic_filter_registry.rs b/src/coordinator/dynamic_filter_registry.rs
+index 72c1aff..f2b3256 100644
+--- a/src/coordinator/dynamic_filter_registry.rs
++++ b/src/coordinator/dynamic_filter_registry.rs
+@@ -1,9 +1,12 @@
++use super::partitioned_dynamic_filter::{HashRouting, merge_hash_predicates};
++use crate::common::TreeNodeExt;
+ use crate::dynamic_filtering::{discover_dynamic_filter_consumers, dynamic_filter_producer_schema};
+ use crate::{
+-    ApplyDynamicFilter, CoordinatorToWorkerMsg, MaybeEncoded, ProducedDynamicFilter, TaskKey,
++    ApplyDynamicFilter, CoordinatorToWorkerMsg, DistributedTaskContext, MaybeEncoded,
++    ProducedDynamicFilter, TaskKey,
+ };
+ use datafusion::arrow::datatypes::SchemaRef;
+-use datafusion::common::tree_node::{TreeNode, TreeNodeRecursion};
++use datafusion::common::tree_node::TreeNodeRecursion;
+ use datafusion::common::{
+     DataFusionError, HashMap, HashSet, Result, exec_datafusion_err, internal_datafusion_err,
+     internal_err,
+@@ -51,6 +54,7 @@ pub(super) struct PlannedDynamicFilter {
+     pub(super) consumer_tasks: HashSet<TaskKey>,
+     /// Latest accepted snapshot from each producer task.
+     pub(super) producer_filters: HashMap<TaskKey, PhysicalDynamicFilterNode>,
++    hash_routing: HashMap<TaskKey, HashRouting>,
+     /// Full dynamic filter containing the merged predicate and its completion state.
+     pub(super) merged: Option<PhysicalDynamicFilterNode>,
+     /// Immutable snapshot shared by local and remote delivery, encoded once per change.
+@@ -75,6 +79,7 @@ pub(super) struct DynamicFilterRegistryState {
+ pub(crate) struct DynamicFilterRegistry {
+     pub(super) state: Mutex<DynamicFilterRegistryState>,
+     dynamic_filter_updates_received: Count,
++    dynamic_filter_global_hash_merges: Count,
+     error_tx: Sender<DataFusionError>,
+     query_finished: CancellationToken,
+ }
+@@ -89,6 +94,8 @@ impl DynamicFilterRegistry {
+             state: Mutex::new(DynamicFilterRegistryState::default()),
+             dynamic_filter_updates_received: MetricBuilder::new(metrics)
+                 .global_counter("dynamic_filter_updates_received"),
++            dynamic_filter_global_hash_merges: MetricBuilder::new(metrics)
++                .global_counter("dynamic_filter_global_hash_merges"),
+             error_tx,
+             query_finished,
+         }
+@@ -103,61 +110,71 @@ impl DynamicFilterRegistry {
+         &self,
+         plan: &Arc<dyn ExecutionPlan>,
+         task_key: TaskKey,
++        task_count: usize,
++        task_ctx: &TaskContext,
+     ) -> Result<()> {
+         let mut producers = vec![];
+ 
+-        plan.apply(|node| {
+-            // `CollectLeft` joins broadcast an equivalent build side to every producer task,
+-            // so we can forward the first completed dynamic filter.
+-            //
+-            // TopK and MIN/MAX bounds are independently useful and incremental, so we can use
+-            // all updates.
+-            //
+-            // Any remaining dynamic filter should wait for completion and should be merged
+-            // at the coordinator before being applied.
+-            let merge_mode = if node
+-                .downcast_ref::<HashJoinExec>()
+-                .is_some_and(|join| matches!(join.partition_mode(), PartitionMode::CollectLeft))
+-            {
+-                DynamicFilterMergeMode::FirstProducerComplete
+-            } else if node.downcast_ref::<SortExec>().is_some()
+-                || node.downcast_ref::<AggregateExec>().is_some()
+-            {
+-                DynamicFilterMergeMode::Incremental
+-            } else {
+-                DynamicFilterMergeMode::AllProducersComplete
+-            };
+-            let produced_ids: HashSet<_> = node
+-                .dynamic_expressions_produced()
+-                .into_iter()
+-                .filter_map(|expression| {
+-                    expression
+-                        .downcast_ref::<DynamicFilterPhysicalExpr>()
+-                        .map(|_| expression.expression_id())
+-                })
+-                .map(|id| match id {
+-                    Some(id) => Ok(id),
+-                    None => {
+-                        internal_err!("DynamicFilterPhysicalExpr did not have an expression ID")
++        plan.apply_with_dt_ctx(
++            DistributedTaskContext {
++                task_index: task_key.task_number,
++                task_count,
++            },
++            |node, context| {
++                // `CollectLeft` joins broadcast an equivalent build side to every producer task,
++                // so we can forward the first completed dynamic filter.
++                //
++                // TopK and MIN/MAX bounds are independently useful and incremental, so we can use
++                // all updates.
++                //
++                // Any remaining dynamic filter should wait for completion and should be merged
++                // at the coordinator before being applied.
++                let merge_mode = if node
++                    .downcast_ref::<HashJoinExec>()
++                    .is_some_and(|join| matches!(join.partition_mode(), PartitionMode::CollectLeft))
++                {
++                    DynamicFilterMergeMode::FirstProducerComplete
++                } else if node.downcast_ref::<SortExec>().is_some()
++                    || node.downcast_ref::<AggregateExec>().is_some()
++                {
++                    DynamicFilterMergeMode::Incremental
++                } else {
++                    DynamicFilterMergeMode::AllProducersComplete
++                };
++                let produced_ids: HashSet<_> = node
++                    .dynamic_expressions_produced()
++                    .into_iter()
++                    .filter_map(|expression| {
++                        expression
++                            .downcast_ref::<DynamicFilterPhysicalExpr>()
++                            .map(|_| expression.expression_id())
++                    })
++                    .map(|id| match id {
++                        Some(id) => Ok(id),
++                        None => {
++                            internal_err!("DynamicFilterPhysicalExpr did not have an expression ID")
++                        }
++                    })
++                    .collect::<Result<_>>()?;
++                if !produced_ids.is_empty() {
++                    let schema = dynamic_filter_producer_schema(node.as_ref())?;
++                    for id in produced_ids {
++                        let routing = match node.downcast_ref::<HashJoinExec>() {
++                            Some(join) => HashRouting::for_join(join, context, task_ctx)?,
++                            None => None,
++                        };
++                        producers.push((id, merge_mode, Arc::clone(&schema), routing));
+                     }
+-                })
+-                .collect::<Result<_>>()?;
+-            if !produced_ids.is_empty() {
+-                let schema = dynamic_filter_producer_schema(node.as_ref())?;
+-                producers.extend(
+-                    produced_ids
+-                        .iter()
+-                        .map(|id| (*id, merge_mode, Arc::clone(&schema))),
+-                );
+-            }
+-            Ok(TreeNodeRecursion::Continue)
+-        })?;
++                }
++                Ok(TreeNodeRecursion::Continue)
++            },
++        )?;
+         // We can safely ignore anchors because they are not evaluated by network boundaries. This
+         // means they do not need updates forwarded to them.
+         let consumers = discover_dynamic_filter_consumers(plan)?.consumers;
+ 
+         let mut state = self.state.lock().expect("dynamic filter registry poisoned");
+-        for (id, merge_mode, producer_schema) in producers {
++        for (id, merge_mode, producer_schema, routing) in producers {
+             let filter = state.filters.entry(id).or_default();
+             if let Some(existing) = &filter.producer_schema
+                 && existing != &producer_schema
+@@ -176,6 +193,9 @@ impl DynamicFilterRegistry {
+                 None => merge_mode,
+             });
+             filter.producer_tasks.insert(task_key);
++            if let Some(routing) = routing {
++                filter.hash_routing.insert(task_key, routing);
++            }
+         }
+         for consumer in consumers {
+             state
+@@ -208,7 +228,7 @@ impl DynamicFilterRegistry {
+         state.sealed_stages.insert(stage_id);
+         let ids = state.filters.keys().copied().collect::<Vec<_>>();
+         for id in ids {
+-            if Self::try_merge(&mut state, id) {
++            if self.try_merge(&mut state, id) {
+                 self.dispatch(&mut state, id);
+             }
+         }
+@@ -254,14 +274,14 @@ impl DynamicFilterRegistry {
+             return;
+         }
+         filter.producer_filters.insert(task_key, *dynamic_filter);
+-        if Self::try_merge(&mut state, report.expression_id) {
++        if self.try_merge(&mut state, report.expression_id) {
+             self.dispatch(&mut state, report.expression_id);
+         }
+     }
+ 
+     /// Merges partial dynamic filters together for the provided dynamic filter
+     /// id only if there are enough updates present.
+-    fn try_merge(state: &mut DynamicFilterRegistryState, id: u64) -> bool {
++    fn try_merge(&self, state: &mut DynamicFilterRegistryState, id: u64) -> bool {
+         let Some(filter) = state.filters.get_mut(&id) else {
+             return false;
+         };
+@@ -292,14 +312,23 @@ impl DynamicFilterRegistry {
+         let Some((_, template)) = reports.first() else {
+             return false;
+         };
+-        let inner_expr = merge_predicates(
+-            reports
+-                .iter()
+-                .filter_map(|(_, report)| report.inner_expr.as_deref().cloned())
+-                .collect(),
+-            mode,
+-        )
+-        .map(Box::new);
++        let global_hash = (mode == DynamicFilterMergeMode::AllProducersComplete)
++            .then(|| merge_hash_predicates(&reports, &filter.hash_routing))
++            .flatten();
++        if global_hash.is_some() {
++            self.dynamic_filter_global_hash_merges.add(1);
++        }
++        let inner_expr = global_hash
++            .or_else(|| {
++                merge_predicates(
++                    reports
++                        .iter()
++                        .filter_map(|(_, report)| report.inner_expr.as_deref().cloned())
++                        .collect(),
++                    mode,
++                )
++            })
++            .map(Box::new);
+         let is_complete = mode == DynamicFilterMergeMode::FirstProducerComplete || all_complete;
+         if previous.is_some_and(|previous| {
+             previous.inner_expr == inner_expr && previous.is_complete == is_complete
+diff --git a/src/coordinator/mod.rs b/src/coordinator/mod.rs
+index 746052a..ba2f59d 100644
+--- a/src/coordinator/mod.rs
++++ b/src/coordinator/mod.rs
+@@ -1,6 +1,7 @@
+ mod distributed;
+ mod dynamic_filter_registry;
+ mod latency_metric;
++mod partitioned_dynamic_filter;
+ mod prepare_dynamic_plan;
+ mod prepare_static_plan;
+ mod query_coordinator;
+diff --git a/src/coordinator/query_coordinator.rs b/src/coordinator/query_coordinator.rs
+index 1a01a06..bdf3786 100644
+--- a/src/coordinator/query_coordinator.rs
++++ b/src/coordinator/query_coordinator.rs
+@@ -188,8 +188,12 @@ impl<'a> StageCoordinator<'a> {
+             task_number: task_i,
+         };
+ 
+-        self.dynamic_filter_registry
+-            .register_task(&plan, task_key)?;
++        self.dynamic_filter_registry.register_task(
++            &plan,
++            task_key,
++            self.task_count,
++            self.task_ctx,
++        )?;
+ 
+         let mut headers = get_config_extension_propagation_headers(session_config)?;
+         headers.extend(get_passthrough_headers(session_config));

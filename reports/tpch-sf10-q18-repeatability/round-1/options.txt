@@ -1,0 +1,11 @@
+Options {
+    data: "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+    output: "/home/bits/datafusion-distributed/reports/tpch-sf10-q18-repeatability/round-1",
+    iterations: 20,
+    queries: [
+        "q18",
+    ],
+    paired_dynamic_filtering: true,
+    reverse_order: false,
+    worker: None,
+}

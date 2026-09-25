@@ -1,0 +1,21 @@
+[
+  { "suite": "tpcds", "query": "q21", "case": "B-off" },
+  { "suite": "tpcds", "query": "q37", "case": "A-on" },
+  { "suite": "tpcds", "query": "q80", "case": "B-on" },
+  { "suite": "tpcds", "query": "q39", "case": "B-off" },
+  { "suite": "clickbench", "query": "q23", "case": "A-on" },
+  { "suite": "tpcds", "query": "q27", "case": "A-on" },
+  { "suite": "tpcds", "query": "q25", "case": "A-on" },
+  { "suite": "tpcds", "query": "q17", "case": "B-on" },
+  { "suite": "tpcds", "query": "q40", "case": "B-on" },
+  { "suite": "tpcds", "query": "q82", "case": "A-on" },
+  { "suite": "tpcds", "query": "q26", "case": "B-on" },
+  { "suite": "tpcds", "query": "q98", "case": "B-on" },
+  { "suite": "tpcds", "query": "q18", "case": "A-off" },
+  { "suite": "tpcds", "query": "q66", "case": "A-on" },
+  { "suite": "tpcds", "query": "q20", "case": "B-off" },
+  { "suite": "tpch", "query": "q7", "case": "A-on" },
+  { "suite": "clickbench", "query": "q26", "case": "B-off" },
+  { "suite": "tpcds", "query": "q21", "case": "A-off" },
+  { "suite": "tpcds", "query": "q80", "case": "A-on" }
+]

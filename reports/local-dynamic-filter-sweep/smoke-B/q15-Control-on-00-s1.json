@@ -1,0 +1,736 @@
+{
+  "query": "q15",
+  "case": {
+    "name": "Control-on",
+    "dynamic_filtering": false,
+    "pushdown_filters": true,
+    "reorder_filters": true
+  },
+  "iteration": 0,
+  "statement": 1,
+  "planning_ms": 10.598765,
+  "execution_ms": 1029.1541200000001,
+  "types": [
+    "Int64",
+    "Utf8View",
+    "Utf8View",
+    "Utf8View",
+    "Decimal128(38, 4)"
+  ],
+  "rows": [
+    [
+      "69998",
+      "Supplier#000069998",
+      ",ZT4VX2ygq9dLsG298SbYYSVUqeH,jhLSRVxNxGv",
+      "16-386-278-9829",
+      "2194132.8166"
+    ]
+  ],
+  "plan": "plans/q15-Control-on-00-s1.txt",
+  "display_error": null,
+  "metrics": [
+    {
+      "index": 0,
+      "node": "DistributedExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "dynamic_filter_global_hash_merges": 0,
+        "dynamic_filter_updates_received": 0,
+        "local_coordinator_channels": 0,
+        "plan_bytes_sent": 116095,
+        "plan_send_latency_avg": 14606000,
+        "plan_send_latency_max": 46497000,
+        "remote_coordinator_channels": 18
+      }
+    },
+    {
+      "index": 1,
+      "node": "SortPreservingMergeExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 139042,
+        "end_timestamp": 1790295031558142364,
+        "output_batches": 1,
+        "output_bytes": 904,
+        "output_rows": 1,
+        "start_timestamp": 1790295030587841167
+      }
+    },
+    {
+      "index": 2,
+      "node": "NetworkCoalesceExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 7173,
+        "elapsed_compute": 568692,
+        "local_connections_used": 0,
+        "max_mem_used": 5527,
+        "msg_count": 17,
+        "network_latency_count": 17,
+        "network_latency_first": 122543201,
+        "network_latency_max": 162241813,
+        "network_latency_min": 82259166,
+        "network_latency_p50": 161799073,
+        "network_latency_p95": 161799073,
+        "network_latency_sum": 609394611,
+        "output_bytes": 72,
+        "output_rows": 1
+      }
+    },
+    {
+      "index": 3,
+      "node": "HashJoinExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 0,
+        "avg_fanout": 0,
+        "build_input_batches": 4,
+        "build_input_rows": 4,
+        "build_mem_used": 500,
+        "build_time": 398269,
+        "elapsed_compute": 820432,
+        "end_timestamp": 10197976429144169835,
+        "input_batches": 16,
+        "input_rows": 100000,
+        "join_time": 387257,
+        "output_batches": 1,
+        "output_bytes": 614400,
+        "output_rows": 1,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197976415704356443
+      }
+    },
+    {
+      "index": 4,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "max(revenue0.total_revenue)"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 5,
+      "node": "NetworkBroadcastExec",
+      "columns": [
+        "max(revenue0.total_revenue)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 1362,
+        "elapsed_compute": 465503,
+        "local_connections_used": 1,
+        "max_mem_used": 879,
+        "msg_count": 6,
+        "network_latency_count": 6,
+        "network_latency_first": 80078513,
+        "network_latency_max": 80078513,
+        "network_latency_min": 368140,
+        "network_latency_p50": 370423,
+        "network_latency_p95": 370423,
+        "network_latency_sum": 80446653,
+        "output_bytes": 64,
+        "output_rows": 4
+      }
+    },
+    {
+      "index": 6,
+      "node": "BroadcastExec",
+      "columns": [
+        "max(revenue0.total_revenue)"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 7,
+      "node": "AggregateExec",
+      "columns": [
+        "max(revenue0.total_revenue)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 33543,
+        "end_timestamp": 1790295031109029350,
+        "output_batches": 1,
+        "output_bytes": 16,
+        "output_rows": 1,
+        "start_timestamp": 1790295030588205737
+      }
+    },
+    {
+      "index": 8,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "max(revenue0.total_revenue)[value]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 14079,
+        "end_timestamp": 1790295031109007098,
+        "output_batches": 16,
+        "output_bytes": 832,
+        "output_rows": 16,
+        "start_timestamp": 1790295030588207534
+      }
+    },
+    {
+      "index": 9,
+      "node": "NetworkCoalesceExec",
+      "columns": [
+        "max(revenue0.total_revenue)[value]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 5532,
+        "elapsed_compute": 1571860,
+        "local_connections_used": 1,
+        "max_mem_used": 2227,
+        "msg_count": 24,
+        "network_latency_count": 24,
+        "network_latency_first": 201781710,
+        "network_latency_max": 241560665,
+        "network_latency_min": 343459,
+        "network_latency_p50": 1242767,
+        "network_latency_p95": 230812395,
+        "network_latency_sum": 857856197,
+        "output_bytes": 256,
+        "output_rows": 16
+      }
+    },
+    {
+      "index": 10,
+      "node": "AggregateExec",
+      "columns": [
+        "max(revenue0.total_revenue)[value]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 279254,
+        "end_timestamp": 10197976423507735344,
+        "output_batches": 16,
+        "output_bytes": 256,
+        "output_rows": 16,
+        "start_timestamp": 10197976415786791840
+      }
+    },
+    {
+      "index": 11,
+      "node": "ProjectionExec",
+      "columns": [
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 25649,
+        "end_timestamp": 10197976423507254582,
+        "expr_0_eval_time": 7421,
+        "output_batches": 16,
+        "output_bytes": 2796256,
+        "output_rows": 100000,
+        "start_timestamp": 10197976415787438269
+      }
+    },
+    {
+      "index": 12,
+      "node": "AggregateExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 167793,
+        "aggregation_time": 48246633,
+        "elapsed_compute": 49368839,
+        "emitting_time": 71563,
+        "end_timestamp": 10197976423507276834,
+        "output_batches": 16,
+        "output_bytes": 3844832,
+        "output_rows": 100000,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976415787127511,
+        "time_calculating_group_ids": 462806
+      }
+    },
+    {
+      "index": 13,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 9137528,
+        "elapsed_compute": 17433978,
+        "local_connections_used": 4,
+        "max_mem_used": 2791920,
+        "msg_count": 192,
+        "network_latency_count": 192,
+        "network_latency_first": 606301387,
+        "network_latency_max": 759457583,
+        "network_latency_min": 2855968,
+        "network_latency_p50": 13969118,
+        "network_latency_p95": 652026287,
+        "network_latency_sum": 2952181885,
+        "output_bytes": 28395576,
+        "output_rows": 1183149
+      }
+    },
+    {
+      "index": 14,
+      "node": "RepartitionExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 267072,
+        "end_timestamp": 3898417543281461962,
+        "fetch_time": 5233503035,
+        "output_batches": 192,
+        "output_bytes": 37748736,
+        "output_rows": 1183149,
+        "repartition_time": 14896773,
+        "send_time": 5461411,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898417516267044021
+      }
+    },
+    {
+      "index": 15,
+      "node": "AggregateExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 34603828,
+        "aggregation_time": 307761762,
+        "elapsed_compute": 347466737,
+        "emitting_time": 214682,
+        "end_timestamp": 10197976421147127963,
+        "output_batches": 153,
+        "output_bytes": 441184000,
+        "output_rows": 1183149,
+        "reduction_factor": 0,
+        "skipped_aggregation_rows": 0,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976415783591306,
+        "time_calculating_group_ids": 1194047
+      }
+    },
+    {
+      "index": 16,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "l_suppkey",
+        "l_extendedprice",
+        "l_discount"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 3005650,
+        "bytes_scanned": 795406942,
+        "elapsed_compute": 1395961,
+        "end_timestamp": 15727775248237013612,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 34,
+        "files_processed": 34,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 49790076,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 288,
+        "output_bytes": 90628560,
+        "output_rows": 2265714,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 1783766,
+        "page_index_load_skipped": 6,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 2265714,
+        "pushdown_rows_pruned": 57720338,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 61918333,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 15727775237676707899,
+        "statistics_eval_time": 1882043,
+        "time_elapsed_opening": 124146515,
+        "time_elapsed_processing": 4116917598,
+        "time_elapsed_scanning_total": 5106410092,
+        "time_elapsed_scanning_until_data": 1356573768
+      }
+    },
+    {
+      "index": 17,
+      "node": "SortExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 137041,
+        "end_timestamp": 10197976430842033943,
+        "output_batches": 16,
+        "output_bytes": 155857844,
+        "output_rows": 100000,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976415706551468
+      }
+    },
+    {
+      "index": 18,
+      "node": "HashJoinExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 4,
+        "avg_fanout": 0,
+        "build_input_batches": 64,
+        "build_input_rows": 400000,
+        "build_mem_used": 61164461,
+        "build_time": 7461678,
+        "elapsed_compute": 15782323,
+        "end_timestamp": 10197976429179076559,
+        "input_batches": 16,
+        "input_rows": 100000,
+        "join_time": 8202111,
+        "output_batches": 16,
+        "output_bytes": 155857844,
+        "output_rows": 100000,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197976415704553251
+      }
+    },
+    {
+      "index": 19,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 104556,
+        "end_timestamp": 7161180124474670676,
+        "output_batches": 64,
+        "output_bytes": 59564461,
+        "output_rows": 400000,
+        "start_timestamp": 7161180122352687543
+      }
+    },
+    {
+      "index": 20,
+      "node": "NetworkBroadcastExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 20290610,
+        "elapsed_compute": 71475919,
+        "local_connections_used": 1,
+        "max_mem_used": 10149644,
+        "msg_count": 60,
+        "network_latency_count": 60,
+        "network_latency_first": 104151162,
+        "network_latency_max": 404029303,
+        "network_latency_min": 90632299,
+        "network_latency_p50": 250791001,
+        "network_latency_p95": 373057380,
+        "network_latency_sum": 4903410424,
+        "output_bytes": 22400000,
+        "output_rows": 400000
+      }
+    },
+    {
+      "index": 21,
+      "node": "BroadcastExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 22,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "s_suppkey",
+        "s_name",
+        "s_address",
+        "s_phone"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 1815,
+        "bytes_scanned": 8450509,
+        "elapsed_compute": 51355,
+        "end_timestamp": 4283297556552499617,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 19,
+        "files_processed": 19,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 76275625,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 16,
+        "output_bytes": 12596365,
+        "output_rows": 100000,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 38,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 0,
+        "pushdown_rows_pruned": 0,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 38,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 4283297556324947749,
+        "statistics_eval_time": 38,
+        "time_elapsed_opening": 77586725,
+        "time_elapsed_processing": 25529494,
+        "time_elapsed_scanning_total": 35569698,
+        "time_elapsed_scanning_until_data": 34535761
+      }
+    },
+    {
+      "index": 23,
+      "node": "ProjectionExec",
+      "columns": [
+        "supplier_no",
+        "total_revenue"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 37734,
+        "end_timestamp": 10197976430834494686,
+        "expr_0_eval_time": 8458,
+        "expr_1_eval_time": 4021,
+        "output_batches": 16,
+        "output_bytes": 3867648,
+        "output_rows": 100000,
+        "start_timestamp": 10197976415706089719
+      }
+    },
+    {
+      "index": 24,
+      "node": "AggregateExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 180966,
+        "aggregation_time": 48147740,
+        "elapsed_compute": 50320966,
+        "emitting_time": 71684,
+        "end_timestamp": 10197976430834527308,
+        "output_batches": 16,
+        "output_bytes": 3867648,
+        "output_rows": 100000,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976415705328702,
+        "time_calculating_group_ids": 498128
+      }
+    },
+    {
+      "index": 25,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 9189496,
+        "elapsed_compute": 20007117,
+        "local_connections_used": 4,
+        "max_mem_used": 2988568,
+        "msg_count": 192,
+        "network_latency_count": 192,
+        "network_latency_first": 410608852,
+        "network_latency_max": 437693002,
+        "network_latency_min": 2989510,
+        "network_latency_p50": 12834613,
+        "network_latency_p95": 436325041,
+        "network_latency_sum": 1969460561,
+        "output_bytes": 28536888,
+        "output_rows": 1189037
+      }
+    },
+    {
+      "index": 26,
+      "node": "RepartitionExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 287417,
+        "end_timestamp": 3898417573199041289,
+        "fetch_time": 4731280171,
+        "output_batches": 192,
+        "output_bytes": 37748736,
+        "output_rows": 1189037,
+        "repartition_time": 14922415,
+        "send_time": 6967129,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898417549862647808
+      }
+    },
+    {
+      "index": 27,
+      "node": "AggregateExec",
+      "columns": [
+        "l_suppkey",
+        "sum(lineitem.l_extendedprice * Int64(1) - lineitem.l_discount)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 31044637,
+        "aggregation_time": 285935559,
+        "elapsed_compute": 321437998,
+        "emitting_time": 145400,
+        "end_timestamp": 10197976428867987563,
+        "output_batches": 154,
+        "output_bytes": 450812672,
+        "output_rows": 1189037,
+        "reduction_factor": 0,
+        "skipped_aggregation_rows": 0,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197976415710476564,
+        "time_calculating_group_ids": 1247987
+      }
+    },
+    {
+      "index": 28,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "l_suppkey",
+        "l_extendedprice",
+        "l_discount"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 3216091,
+        "bytes_scanned": 795406942,
+        "elapsed_compute": 1462829,
+        "end_timestamp": 15727775272558098977,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 34,
+        "files_processed": 34,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 1382806,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 288,
+        "output_bytes": 90628560,
+        "output_rows": 2265714,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 1813442,
+        "page_index_load_skipped": 6,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 2265714,
+        "pushdown_rows_pruned": 57720338,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 49964972,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 15727775254707255253,
+        "statistics_eval_time": 1432422,
+        "time_elapsed_opening": 75392243,
+        "time_elapsed_processing": 3756592257,
+        "time_elapsed_scanning_total": 4653792981,
+        "time_elapsed_scanning_until_data": 1295335204
+      }
+    }
+  ]
+}

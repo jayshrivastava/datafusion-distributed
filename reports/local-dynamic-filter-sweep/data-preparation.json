@@ -1,0 +1,34 @@
+{
+  "binary": "/home/bits/datafusion-distributed/target/release/dfbench",
+  "sha256": "6a5d580eddbab170cfe3982c9a9b43d6739abee8c87d199a8cd74ad7971520d8",
+  "jobs": [
+    {
+      "name": "tpcds",
+      "data": "/instance_storage/bits_cache/datafusion-benchmark-data/tpcds/sf10",
+      "args": [
+        "prepare-tpcds",
+        "--sf",
+        "10",
+        "--partitions",
+        "16"
+      ],
+      "status": "complete",
+      "started": "2026-09-25T00:02:32.570Z",
+      "finished": "2026-09-25T00:07:42.173Z"
+    },
+    {
+      "name": "clickbench",
+      "data": "/instance_storage/bits_cache/datafusion-benchmark-data/clickbench/0-100-date32",
+      "args": [
+        "prepare-clickbench",
+        "--partition-start",
+        "0",
+        "--partition-end",
+        "100"
+      ],
+      "status": "complete",
+      "started": "2026-09-25T00:07:42.174Z",
+      "finished": "2026-09-25T00:21:17.306Z"
+    }
+  ]
+}

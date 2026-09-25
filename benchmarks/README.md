@@ -1,5 +1,13 @@
 # Local DataFusion benchmarks
 
+### Selective distributed hash join
+
+The standalone `dynamic-filter-join` binary compares dynamic filtering on/off
+and Parquet row pushdown on/off using four localhost worker processes with four
+target partitions each. It generates deterministic data, verifies results, and
+captures executed plans and metrics. See [the benchmark report](dynamic-filter-join.md)
+for commands, measurements, and the workload's limitations.
+
 ### Generating Benchmarking data
 
 Generate datasets alongside the integration-test fixtures under `testdata/`.

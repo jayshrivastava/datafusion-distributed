@@ -1,0 +1,23 @@
+{
+  "tpcds/sf10": {
+    "q21": { "remote": [], "local": ["Join"] },
+    "q37": { "remote": ["Join", "TopK"], "local": ["Join"] },
+    "q80": { "remote": ["Join"], "local": [] },
+    "q39": { "remote": [], "local": ["Join"] },
+    "q27": { "remote": ["Join", "TopK"], "local": [] },
+    "q25": { "remote": ["Join"], "local": [] },
+    "q82": { "remote": ["Join", "TopK"], "local": ["Join"] },
+    "q17": { "remote": ["Join"], "local": [] },
+    "q26": { "remote": ["Join", "TopK"], "local": [] },
+    "q98": { "remote": [], "local": ["Join"] }
+  },
+  "tpcds/sf100": {
+    "q21": { "remote": [], "local": ["Join"] },
+    "q37": { "remote": ["Join", "TopK"], "local": ["Join"] },
+    "q80": { "remote": ["Join"], "local": [] },
+    "q39": { "remote": ["Join"], "local": [] },
+    "q27": { "remote": ["Join", "TopK"], "local": [] },
+    "q25": { "remote": ["Join"], "local": [] },
+    "q82": { "remote": ["Join", "TopK"], "local": ["Join"] }
+  }
+}

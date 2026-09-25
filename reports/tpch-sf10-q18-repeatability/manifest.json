@@ -1,0 +1,111 @@
+{
+  "status": "complete",
+  "started_at": "2026-09-24T23:43:47.123Z",
+  "commit": "c78f9e124875c6bb25cb63ed16df75af700eb34d",
+  "binary_sha256": "3916179b27f1e270b141033790d8395842e3e79879131e58a4c98c3546ae1863",
+  "source_sha256": {
+    "Cargo.lock": "0c5d2c4acfc9bbad158e9c0cb8737c7523050586bce4eaf966e7fa19cd2eb09e",
+    "benchmarks/src/bin/tpch-filter-matrix.rs": "02f457885b3306c4835808041585dac72ca4bcc54670c8ec4d01fb15d64814cf",
+    "src/coordinator/partitioned_dynamic_filter.rs": "85dfc37a75ca4de3081a1bbea80f630ad956e77f8044839427380ec3facde6fa",
+    "src/coordinator/dynamic_filter_registry.rs": "6a943ecb199e007f25f5fbb9e74a2e3da8ba86e0caf548cfb33209703f56e7c3",
+    "src/coordinator/query_coordinator.rs": "a5c6417d1e824934ac4454a3bb5ab6e45557ebccc484f7219ae11d00dcf1d784",
+    "src/distributed_planner/insert_post_scan_dynamic_filters.rs": "1b1bce2b6121cb6ab982b5928967988fa665cb0078919fa653f22541a1b63209"
+  },
+  "data": "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+  "query": "q18",
+  "workers": 4,
+  "target_partitions": 4,
+  "iterations": 20,
+  "arch": "arm64",
+  "cpu": "Neoverse-N1",
+  "cpus": 16,
+  "memory_bytes": 65934987264,
+  "rounds": [
+    {
+      "directory": "round-1",
+      "args": [
+        "--data",
+        "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+        "--output",
+        "/home/bits/datafusion-distributed/reports/tpch-sf10-q18-repeatability/round-1",
+        "--queries",
+        "q18",
+        "--paired-dynamic-filtering",
+        "--iterations",
+        "20"
+      ],
+      "started_at": "2026-09-24T23:43:47.325Z",
+      "load_before": [
+        1.62,
+        1.53,
+        0.95
+      ],
+      "finished_at": "2026-09-24T23:45:02.930Z",
+      "load_after": [
+        10.67,
+        4.34,
+        1.98
+      ],
+      "validated": true,
+      "executions": 42
+    },
+    {
+      "directory": "round-2",
+      "args": [
+        "--data",
+        "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+        "--output",
+        "/home/bits/datafusion-distributed/reports/tpch-sf10-q18-repeatability/round-2",
+        "--queries",
+        "q18",
+        "--paired-dynamic-filtering",
+        "--iterations",
+        "20",
+        "--reverse-order"
+      ],
+      "started_at": "2026-09-24T23:45:02.930Z",
+      "load_before": [
+        10.67,
+        4.34,
+        1.98
+      ],
+      "finished_at": "2026-09-24T23:46:16.681Z",
+      "load_after": [
+        13.38,
+        6.43,
+        2.87
+      ],
+      "validated": true,
+      "executions": 42
+    },
+    {
+      "directory": "round-3",
+      "args": [
+        "--data",
+        "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+        "--output",
+        "/home/bits/datafusion-distributed/reports/tpch-sf10-q18-repeatability/round-3",
+        "--queries",
+        "q18",
+        "--paired-dynamic-filtering",
+        "--iterations",
+        "20"
+      ],
+      "started_at": "2026-09-24T23:46:16.681Z",
+      "load_before": [
+        13.38,
+        6.43,
+        2.87
+      ],
+      "finished_at": "2026-09-24T23:47:32.451Z",
+      "load_after": [
+        11.37,
+        7.62,
+        3.6
+      ],
+      "validated": true,
+      "executions": 42
+    }
+  ],
+  "finished_at": "2026-09-24T23:47:32.451Z"
+}

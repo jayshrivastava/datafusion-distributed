@@ -1,0 +1,472 @@
+{
+  "off": {
+    "n": 60,
+    "mean_ms": 2024.1319839000005,
+    "median_ms": 2020.1042155000002,
+    "p90_ms": 2060.8560199,
+    "min_ms": 1949.9129699999999,
+    "max_ms": 2158.7666759999997,
+    "sd_ms": 35.912977396527424,
+    "planning_ms": 8.257052416666665,
+    "counters": {
+      "scan_rows": 136472104,
+      "scan_bytes": 1227246340,
+      "parquet_rows_pruned": 0,
+      "dynamic_row_groups_pruned": 0,
+      "parquet_eval_ms": 0.00027199999999999984,
+      "network_rows": 106486686,
+      "network_bytes": 836940157.2166667,
+      "join_compute_ms": 13066.034312783335,
+      "spilled_bytes": 0,
+      "remote_updates": 0,
+      "global_hash_merges": 0
+    },
+    "plan": "round-3/plans/q18-dynamic_off-11.txt"
+  },
+  "on": {
+    "n": 60,
+    "mean_ms": 1398.4396124166665,
+    "median_ms": 1294.49737,
+    "p90_ms": 1788.2703469,
+    "min_ms": 1196.900707,
+    "max_ms": 2327.759163,
+    "sd_ms": 263.09673156092333,
+    "planning_ms": 8.134794266666667,
+    "counters": {
+      "scan_rows": 89147411.31666666,
+      "scan_bytes": 1227246340,
+      "parquet_rows_pruned": 47324692.68333333,
+      "dynamic_row_groups_pruned": 0,
+      "parquet_eval_ms": 4437.738580933334,
+      "network_rows": 45571511.56666667,
+      "network_bytes": 240839158.05,
+      "join_compute_ms": 4776.226845133333,
+      "spilled_bytes": 0,
+      "remote_updates": 20.15,
+      "global_hash_merges": 3
+    },
+    "plan": "round-2/plans/q18-dynamic_on-18.txt"
+  },
+  "rounds": [
+    {
+      "directory": "round-1",
+      "off": {
+        "n": 20,
+        "mean_ms": 2020.8929255500002,
+        "median_ms": 2019.167775,
+        "p90_ms": 2054.5586821,
+        "min_ms": 1949.9129699999999,
+        "max_ms": 2076.566456,
+        "sd_ms": 28.95610536119151,
+        "planning_ms": 7.8714391500000005,
+        "counters": {
+          "scan_rows": 136472104,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 0,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 0.000272,
+          "network_rows": 106486686,
+          "network_bytes": 836932814.7,
+          "join_compute_ms": 13013.137200399999,
+          "spilled_bytes": 0,
+          "remote_updates": 0,
+          "global_hash_merges": 0
+        },
+        "plan": "round-1/plans/q18-dynamic_off-08.txt"
+      },
+      "on": {
+        "n": 20,
+        "mean_ms": 1430.30812475,
+        "median_ms": 1322.0933029999999,
+        "p90_ms": 1754.2182735000004,
+        "min_ms": 1228.217253,
+        "max_ms": 2166.335605,
+        "sd_ms": 243.20668163982407,
+        "planning_ms": 8.078475300000001,
+        "counters": {
+          "scan_rows": 94399499.1,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 42072604.9,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 4460.9004615,
+          "network_rows": 50960155.8,
+          "network_bytes": 263996154.15,
+          "join_compute_ms": 4915.0493483,
+          "spilled_bytes": 0,
+          "remote_updates": 19.65,
+          "global_hash_merges": 3
+        },
+        "plan": "round-1/plans/q18-dynamic_on-11.txt"
+      },
+      "pairs": [
+        {
+          "off": 2058.160258,
+          "on": 2166.335605
+        },
+        {
+          "off": 2076.566456,
+          "on": 1412.444522
+        },
+        {
+          "off": 2038.6803009999999,
+          "on": 1372.026892
+        },
+        {
+          "off": 2032.148865,
+          "on": 1270.667419
+        },
+        {
+          "off": 2017.4289239999998,
+          "on": 1303.446885
+        },
+        {
+          "off": 1985.1616760000002,
+          "on": 1805.1149340000002
+        },
+        {
+          "off": 2030.0534670000002,
+          "on": 1282.990776
+        },
+        {
+          "off": 2019.7428639999998,
+          "on": 1748.5630890000002
+        },
+        {
+          "off": 1991.697984,
+          "on": 1534.9218100000003
+        },
+        {
+          "off": 2010.9333349999997,
+          "on": 1278.6859729999999
+        },
+        {
+          "off": 2024.6397599999998,
+          "on": 1319.393101
+        },
+        {
+          "off": 2045.953469,
+          "on": 1232.2030370000002
+        },
+        {
+          "off": 1949.9129699999999,
+          "on": 1482.651508
+        },
+        {
+          "off": 1997.670284,
+          "on": 1324.7935049999999
+        },
+        {
+          "off": 2054.158507,
+          "on": 1655.28097
+        },
+        {
+          "off": 2043.7886170000002,
+          "on": 1315.006772
+        },
+        {
+          "off": 1993.839317,
+          "on": 1232.461644
+        },
+        {
+          "off": 2018.592686,
+          "on": 1265.843944
+        },
+        {
+          "off": 2013.6842540000002,
+          "on": 1228.217253
+        },
+        {
+          "off": 2015.0445170000003,
+          "on": 1375.112856
+        }
+      ],
+      "speedup": 1.4129073942743822,
+      "wins": 19
+    },
+    {
+      "directory": "round-2",
+      "off": {
+        "n": 20,
+        "mean_ms": 2036.12225125,
+        "median_ms": 2031.998634,
+        "p90_ms": 2073.1855829,
+        "min_ms": 1956.908093,
+        "max_ms": 2158.7666759999997,
+        "sd_ms": 42.666101868541965,
+        "planning_ms": 8.28630555,
+        "counters": {
+          "scan_rows": 136472104,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 0,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 0.000272,
+          "network_rows": 106486686,
+          "network_bytes": 836954519.8,
+          "join_compute_ms": 13075.292899050002,
+          "spilled_bytes": 0,
+          "remote_updates": 0,
+          "global_hash_merges": 0
+        },
+        "plan": "round-2/plans/q18-dynamic_off-10.txt"
+      },
+      "on": {
+        "n": 20,
+        "mean_ms": 1322.9490100500002,
+        "median_ms": 1287.2678365,
+        "p90_ms": 1384.2775742000003,
+        "min_ms": 1220.046394,
+        "max_ms": 1801.060993,
+        "sd_ms": 128.2545298868904,
+        "planning_ms": 8.0817359,
+        "counters": {
+          "scan_rows": 82907087.4,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 53565016.6,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 4582.17282965,
+          "network_rows": 38218914.35,
+          "network_bytes": 183504752.55,
+          "join_compute_ms": 4023.5046142500005,
+          "spilled_bytes": 0,
+          "remote_updates": 19.9,
+          "global_hash_merges": 3
+        },
+        "plan": "round-2/plans/q18-dynamic_on-01.txt"
+      },
+      "pairs": [
+        {
+          "off": 2060.004488,
+          "on": 1292.8547319999998
+        },
+        {
+          "off": 2026.0329600000002,
+          "on": 1276.9315119999999
+        },
+        {
+          "off": 2054.222697,
+          "on": 1281.680941
+        },
+        {
+          "off": 1987.7174420000001,
+          "on": 1512.367421
+        },
+        {
+          "off": 1956.908093,
+          "on": 1327.897634
+        },
+        {
+          "off": 2072.362048,
+          "on": 1279.912924
+        },
+        {
+          "off": 2026.2124149999997,
+          "on": 1801.060993
+        },
+        {
+          "off": 2047.680535,
+          "on": 1242.949386
+        },
+        {
+          "off": 2024.219323,
+          "on": 1304.044836
+        },
+        {
+          "off": 2037.171533,
+          "on": 1370.0453690000002
+        },
+        {
+          "off": 2026.8257350000001,
+          "on": 1255.120674
+        },
+        {
+          "off": 2158.7666759999997,
+          "on": 1275.4600890000002
+        },
+        {
+          "off": 1974.012579,
+          "on": 1299.977777
+        },
+        {
+          "off": 2044.2438260000001,
+          "on": 1270.283572
+        },
+        {
+          "off": 2010.808277,
+          "on": 1247.649859
+        },
+        {
+          "off": 2056.28104,
+          "on": 1220.046394
+        },
+        {
+          "off": 2026.3972130000002,
+          "on": 1341.647464
+        },
+        {
+          "off": 2080.597397,
+          "on": 1296.140008
+        },
+        {
+          "off": 2004.7161359999998,
+          "on": 1309.3691029999998
+        },
+        {
+          "off": 2047.2646120000002,
+          "on": 1253.539513
+        }
+      ],
+      "speedup": 1.5390784042183498,
+      "wins": 20
+    },
+    {
+      "directory": "round-3",
+      "off": {
+        "n": 20,
+        "mean_ms": 2015.3807748999996,
+        "median_ms": 2011.7565789999999,
+        "p90_ms": 2060.8170949,
+        "min_ms": 1974.553349,
+        "max_ms": 2114.2729679999998,
+        "sd_ms": 33.213621144715674,
+        "planning_ms": 8.613412550000001,
+        "counters": {
+          "scan_rows": 136472104,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 0,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 0.000272,
+          "network_rows": 106486686,
+          "network_bytes": 836933137.15,
+          "join_compute_ms": 13109.6728389,
+          "spilled_bytes": 0,
+          "remote_updates": 0,
+          "global_hash_merges": 0
+        },
+        "plan": "round-3/plans/q18-dynamic_off-19.txt"
+      },
+      "on": {
+        "n": 20,
+        "mean_ms": 1442.0617024500002,
+        "median_ms": 1283.844685,
+        "p90_ms": 2110.2950543,
+        "min_ms": 1196.900707,
+        "max_ms": 2327.759163,
+        "sd_ms": 360.9382180608543,
+        "planning_ms": 8.244171600000001,
+        "counters": {
+          "scan_rows": 90135647.45,
+          "scan_bytes": 1227246340,
+          "parquet_rows_pruned": 46336456.55,
+          "dynamic_row_groups_pruned": 0,
+          "parquet_eval_ms": 4270.142451649999,
+          "network_rows": 47535464.55,
+          "network_bytes": 275016567.45,
+          "join_compute_ms": 5390.126572849999,
+          "spilled_bytes": 0,
+          "remote_updates": 20.9,
+          "global_hash_merges": 3
+        },
+        "plan": "round-3/plans/q18-dynamic_on-05.txt"
+      },
+      "pairs": [
+        {
+          "off": 2000.3801019999999,
+          "on": 1317.788137
+        },
+        {
+          "off": 2020.7829980000001,
+          "on": 1254.704076
+        },
+        {
+          "off": 2014.415413,
+          "on": 1262.15889
+        },
+        {
+          "off": 2059.961238,
+          "on": 1246.07428
+        },
+        {
+          "off": 1974.553349,
+          "on": 1280.274656
+        },
+        {
+          "off": 2014.4531909999998,
+          "on": 1269.399924
+        },
+        {
+          "off": 1978.3319569999999,
+          "on": 1287.4921180000001
+        },
+        {
+          "off": 2114.2729679999998,
+          "on": 1372.361895
+        },
+        {
+          "off": 1998.632601,
+          "on": 2094.126019
+        },
+        {
+          "off": 1981.73059,
+          "on": 1229.509489
+        },
+        {
+          "off": 2019.8344760000002,
+          "on": 2327.759163
+        },
+        {
+          "off": 2068.519807,
+          "on": 1786.849164
+        },
+        {
+          "off": 1994.5415870000002,
+          "on": 1196.900707
+        },
+        {
+          "off": 1993.7887509999998,
+          "on": 1223.83596
+        },
+        {
+          "off": 1999.0986269999999,
+          "on": 1344.2504820000001
+        },
+        {
+          "off": 2020.3739550000003,
+          "on": 2255.816372
+        },
+        {
+          "off": 2029.348276,
+          "on": 1287.414714
+        },
+        {
+          "off": 2014.790269,
+          "on": 1296.451114
+        },
+        {
+          "off": 2009.097745,
+          "on": 1244.82676
+        },
+        {
+          "off": 2000.707598,
+          "on": 1263.240129
+        }
+      ],
+      "speedup": 1.3975690301434087,
+      "wins": 17
+    }
+  ],
+  "speedup": 1.4474218020770055,
+  "wins": 56,
+  "confidence": [
+    1.3798057353720816,
+    1.5126266272507787
+  ],
+  "bootstrap_replicates": 20000,
+  "checks": {
+    "each_round_at_least_1_20x": true,
+    "at_least_90_percent_pairs_faster": true,
+    "bootstrap_lower_bound_above_1_10x": true,
+    "all_results_match": true,
+    "reduced_scan_and_network_work": true
+  },
+  "passed": true
+}

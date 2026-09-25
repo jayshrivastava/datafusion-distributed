@@ -1,0 +1,16 @@
+Options {
+    data: "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+    output: "reports/local-dynamic-filter-sweep/smoke-A",
+    suite: "tpch",
+    queries: [
+        "q17",
+    ],
+    iterations: 1,
+    cases: [
+        "Control-on",
+        "A-on",
+    ],
+    reverse_order: false,
+    timeout_seconds: 180,
+    worker: None,
+}

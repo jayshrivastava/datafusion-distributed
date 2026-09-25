@@ -1,0 +1,1583 @@
+{
+  "query": "q7",
+  "case": {
+    "name": "Control-on",
+    "dynamic_filtering": false,
+    "pushdown_filters": true,
+    "reorder_filters": true
+  },
+  "iteration": 1,
+  "statement": 0,
+  "planning_ms": 12.893393,
+  "execution_ms": 1255.660402,
+  "types": [
+    "Utf8View",
+    "Float64",
+    "Decimal128(38, 6)",
+    "Decimal128(38, 6)",
+    "Decimal128(38, 6)"
+  ],
+  "rows": [
+    [
+      "AAAAAAAAAAAABAAA",
+      "68.5",
+      "102.780000",
+      "0.000000",
+      "34.520000"
+    ],
+    [
+      "AAAAAAAAAAABAAAA",
+      "40.4",
+      "98.254000",
+      "75.816000",
+      "45.230000"
+    ],
+    [
+      "AAAAAAAAAAABBAAA",
+      "67.0",
+      "18.180000",
+      "0.000000",
+      "0.540000"
+    ],
+    [
+      "AAAAAAAAAAADBAAA",
+      "73.0",
+      "38.290000",
+      "0.000000",
+      "32.540000"
+    ],
+    [
+      "AAAAAAAAAAAEAAAA",
+      "77.0",
+      "99.890000",
+      "452.000000",
+      "11.980000"
+    ],
+    [
+      "AAAAAAAAAAAFAAAA",
+      "9.0",
+      "34.360000",
+      "0.000000",
+      "0.340000"
+    ],
+    [
+      "AAAAAAAAAAAGBAAA",
+      "61.0",
+      "73.945000",
+      "0.000000",
+      "61.235000"
+    ],
+    [
+      "AAAAAAAAAAAHAAAA",
+      "33.333333333333336",
+      "116.370000",
+      "0.000000",
+      "41.970000"
+    ],
+    [
+      "AAAAAAAAAAAHBAAA",
+      "79.5",
+      "87.675000",
+      "3041.645000",
+      "47.645000"
+    ],
+    [
+      "AAAAAAAAAAAIAAAA",
+      "67.0",
+      "114.550000",
+      "0.000000",
+      "108.820000"
+    ],
+    [
+      "AAAAAAAAAAAKAAAA",
+      "32.333333333333336",
+      "100.820000",
+      "0.000000",
+      "38.583333"
+    ],
+    [
+      "AAAAAAAAAAALAAAA",
+      "89.0",
+      "104.280000",
+      "0.000000",
+      "87.590000"
+    ],
+    [
+      "AAAAAAAAAAANAAAA",
+      "48.0",
+      "48.290000",
+      "0.000000",
+      "6.270000"
+    ],
+    [
+      "AAAAAAAAAAAOAAAA",
+      "47.333333333333336",
+      "26.456666",
+      "329.120000",
+      "11.836666"
+    ],
+    [
+      "AAAAAAAAAABAAAAA",
+      "58.5",
+      "57.825000",
+      "0.000000",
+      "11.650000"
+    ],
+    [
+      "AAAAAAAAAABABAAA",
+      "26.0",
+      "39.170000",
+      "0.000000",
+      "22.710000"
+    ],
+    [
+      "AAAAAAAAAABBAAAA",
+      "33.0",
+      "46.300000",
+      "141.940000",
+      "7.050000"
+    ],
+    [
+      "AAAAAAAAAABCBAAA",
+      "38.75",
+      "78.055000",
+      "0.000000",
+      "34.237500"
+    ],
+    [
+      "AAAAAAAAAABDAAAA",
+      "20.666666666666668",
+      "43.580000",
+      "0.000000",
+      "26.470000"
+    ],
+    [
+      "AAAAAAAAAABDBAAA",
+      "6.0",
+      "63.470000",
+      "0.000000",
+      "10.150000"
+    ],
+    [
+      "AAAAAAAAAABFBAAA",
+      "23.0",
+      "31.340000",
+      "89.930000",
+      "30.080000"
+    ],
+    [
+      "AAAAAAAAAABGAAAA",
+      "84.0",
+      "65.000000",
+      "0.000000",
+      "14.300000"
+    ],
+    [
+      "AAAAAAAAAABGBAAA",
+      "2.0",
+      "25.600000",
+      "0.000000",
+      "17.920000"
+    ],
+    [
+      "AAAAAAAAAABHAAAA",
+      "52.0",
+      "22.720000",
+      "0.000000",
+      "21.580000"
+    ],
+    [
+      "AAAAAAAAAABIBAAA",
+      "72.0",
+      "71.505000",
+      "0.000000",
+      "18.765000"
+    ],
+    [
+      "AAAAAAAAAABJAAAA",
+      "48.0",
+      "48.380000",
+      "0.000000",
+      "45.960000"
+    ],
+    [
+      "AAAAAAAAAABKAAAA",
+      "38.0",
+      "145.290000",
+      "0.000000",
+      "132.210000"
+    ],
+    [
+      "AAAAAAAAAABNAAAA",
+      "90.0",
+      "63.020000",
+      "0.000000",
+      "48.520000"
+    ],
+    [
+      "AAAAAAAAAABPAAAA",
+      "26.0",
+      "76.653333",
+      "0.000000",
+      "21.523333"
+    ],
+    [
+      "AAAAAAAAAACAAAAA",
+      "59.5",
+      "100.675000",
+      "0.000000",
+      "87.885000"
+    ],
+    [
+      "AAAAAAAAAACBBAAA",
+      "41.8",
+      "52.156000",
+      "137.688000",
+      "43.478000"
+    ],
+    [
+      "AAAAAAAAAACCBAAA",
+      "86.0",
+      "69.090000",
+      "0.000000",
+      "5.520000"
+    ],
+    [
+      "AAAAAAAAAACDAAAA",
+      "35.666666666666664",
+      "94.060000",
+      "3.546666",
+      "37.240000"
+    ],
+    [
+      "AAAAAAAAAACEBAAA",
+      "56.0",
+      "28.840000",
+      "193.060000",
+      "6.630000"
+    ],
+    [
+      "AAAAAAAAAACFAAAA",
+      "27.5",
+      "135.130000",
+      "425.510000",
+      "113.165000"
+    ],
+    [
+      "AAAAAAAAAACHBAAA",
+      "46.666666666666664",
+      "83.303333",
+      "0.000000",
+      "39.560000"
+    ],
+    [
+      "AAAAAAAAAACIAAAA",
+      "32.0",
+      "11.050000",
+      "0.000000",
+      "2.580000"
+    ],
+    [
+      "AAAAAAAAAACIBAAA",
+      "79.33333333333333",
+      "39.796666",
+      "0.000000",
+      "8.590000"
+    ],
+    [
+      "AAAAAAAAAACJAAAA",
+      "48.0",
+      "58.060000",
+      "0.000000",
+      "25.800000"
+    ],
+    [
+      "AAAAAAAAAACLAAAA",
+      "28.0",
+      "82.110000",
+      "0.000000",
+      "29.550000"
+    ],
+    [
+      "AAAAAAAAAACOAAAA",
+      "21.0",
+      "101.120000",
+      "449.500000",
+      "73.810000"
+    ],
+    [
+      "AAAAAAAAAADABAAA",
+      "77.0",
+      "163.500000",
+      "0.000000",
+      "68.670000"
+    ],
+    [
+      "AAAAAAAAAADBBAAA",
+      "34.0",
+      "",
+      "249.900000",
+      ""
+    ],
+    [
+      "AAAAAAAAAADCAAAA",
+      "31.0",
+      "102.040000",
+      "0.000000",
+      "26.530000"
+    ],
+    [
+      "AAAAAAAAAADEBAAA",
+      "72.8",
+      "77.996000",
+      "267.340000",
+      "50.336000"
+    ],
+    [
+      "AAAAAAAAAADGBAAA",
+      "37.5",
+      "102.480000",
+      "0.000000",
+      "6.215000"
+    ],
+    [
+      "AAAAAAAAAADHAAAA",
+      "64.66666666666667",
+      "105.723333",
+      "1057.213333",
+      "59.783333"
+    ],
+    [
+      "AAAAAAAAAADHBAAA",
+      "89.0",
+      "92.580000",
+      "0.000000",
+      "55.145000"
+    ],
+    [
+      "AAAAAAAAAADNAAAA",
+      "9.0",
+      "91.400000",
+      "0.000000",
+      "15.530000"
+    ],
+    [
+      "AAAAAAAAAADOAAAA",
+      "51.0",
+      "95.765000",
+      "29.663333",
+      "16.360000"
+    ],
+    [
+      "AAAAAAAAAAEAAAAA",
+      "37.0",
+      "51.650000",
+      "14.330000",
+      "12.910000"
+    ],
+    [
+      "AAAAAAAAAAEABAAA",
+      "62.0",
+      "46.315000",
+      "0.000000",
+      "25.310000"
+    ],
+    [
+      "AAAAAAAAAAECBAAA",
+      "7.0",
+      "30.360000",
+      "0.000000",
+      "21.550000"
+    ],
+    [
+      "AAAAAAAAAAEDAAAA",
+      "86.0",
+      "157.860000",
+      "3636.790000",
+      "74.190000"
+    ],
+    [
+      "AAAAAAAAAAEEAAAA",
+      "46.5",
+      "67.615000",
+      "0.000000",
+      "22.770000"
+    ],
+    [
+      "AAAAAAAAAAEFBAAA",
+      "68.33333333333333",
+      "96.840000",
+      "1070.120000",
+      "32.080000"
+    ],
+    [
+      "AAAAAAAAAAEHAAAA",
+      "13.0",
+      "28.500000",
+      "0.000000",
+      "19.950000"
+    ],
+    [
+      "AAAAAAAAAAEIBAAA",
+      "41.0",
+      "45.530000",
+      "24.035000",
+      "17.655000"
+    ],
+    [
+      "AAAAAAAAAAEJAAAA",
+      "58.0",
+      "27.370000",
+      "0.000000",
+      "7.110000"
+    ],
+    [
+      "AAAAAAAAAAEKAAAA",
+      "27.0",
+      "22.770000",
+      "115.870000",
+      "9.330000"
+    ],
+    [
+      "AAAAAAAAAAEMAAAA",
+      "54.0",
+      "98.596666",
+      "0.000000",
+      "26.036666"
+    ],
+    [
+      "AAAAAAAAAAENAAAA",
+      "91.0",
+      "137.980000",
+      "0.000000",
+      "93.820000"
+    ],
+    [
+      "AAAAAAAAAAEPAAAA",
+      "78.0",
+      "28.580000",
+      "0.000000",
+      "10.450000"
+    ],
+    [
+      "AAAAAAAAAAFAAAAA",
+      "8.0",
+      "50.490000",
+      "0.000000",
+      "15.140000"
+    ],
+    [
+      "AAAAAAAAAAFBBAAA",
+      "61.5",
+      "45.125000",
+      "31.300000",
+      "2.170000"
+    ],
+    [
+      "AAAAAAAAAAFCAAAA",
+      "3.0",
+      "130.080000",
+      "0.000000",
+      "113.160000"
+    ],
+    [
+      "AAAAAAAAAAFCBAAA",
+      "67.0",
+      "12.173333",
+      "0.000000",
+      "6.730000"
+    ],
+    [
+      "AAAAAAAAAAFFBAAA",
+      "41.5",
+      "56.145000",
+      "0.000000",
+      "40.435000"
+    ],
+    [
+      "AAAAAAAAAAFGAAAA",
+      "63.0",
+      "65.300000",
+      "0.000000",
+      "34.600000"
+    ],
+    [
+      "AAAAAAAAAAFHBAAA",
+      "36.0",
+      "100.510000",
+      "1452.613333",
+      "70.260000"
+    ],
+    [
+      "AAAAAAAAAAFIAAAA",
+      "75.0",
+      "44.053333",
+      "20.820000",
+      "19.366666"
+    ],
+    [
+      "AAAAAAAAAAFIBAAA",
+      "61.5",
+      "51.125000",
+      "0.000000",
+      "31.670000"
+    ],
+    [
+      "AAAAAAAAAAFJAAAA",
+      "98.0",
+      "17.170000",
+      "0.000000",
+      "10.810000"
+    ],
+    [
+      "AAAAAAAAAAFMAAAA",
+      "41.5",
+      "99.490000",
+      "1286.465000",
+      "47.675000"
+    ],
+    [
+      "AAAAAAAAAAFOAAAA",
+      "25.0",
+      "58.190000",
+      "0.000000",
+      "33.750000"
+    ],
+    [
+      "AAAAAAAAAAFPAAAA",
+      "56.0",
+      "47.310000",
+      "0.000000",
+      "25.070000"
+    ],
+    [
+      "AAAAAAAAAAGABAAA",
+      "53.0",
+      "30.392500",
+      "19.995000",
+      "13.350000"
+    ],
+    [
+      "AAAAAAAAAAGBBAAA",
+      "48.4",
+      "103.446000",
+      "0.000000",
+      "68.616000"
+    ],
+    [
+      "AAAAAAAAAAGCAAAA",
+      "28.5",
+      "72.400000",
+      "0.000000",
+      "51.695000"
+    ],
+    [
+      "AAAAAAAAAAGEBAAA",
+      "36.0",
+      "104.370000",
+      "111.210000",
+      "77.230000"
+    ],
+    [
+      "AAAAAAAAAAGFAAAA",
+      "98.0",
+      "84.530000",
+      "0.000000",
+      "38.880000"
+    ],
+    [
+      "AAAAAAAAAAGGBAAA",
+      "98.0",
+      "2.680000",
+      "0.000000",
+      "1.280000"
+    ],
+    [
+      "AAAAAAAAAAGHAAAA",
+      "30.333333333333332",
+      "73.906666",
+      "0.000000",
+      "36.156666"
+    ],
+    [
+      "AAAAAAAAAAGIAAAA",
+      "66.2",
+      "81.174000",
+      "0.000000",
+      "49.626000"
+    ],
+    [
+      "AAAAAAAAAAGKAAAA",
+      "45.333333333333336",
+      "78.143333",
+      "146.636666",
+      "37.346666"
+    ],
+    [
+      "AAAAAAAAAAGNAAAA",
+      "75.0",
+      "84.563333",
+      "17.686666",
+      "42.473333"
+    ],
+    [
+      "AAAAAAAAAAGOAAAA",
+      "16.5",
+      "99.315000",
+      "8.845000",
+      "22.790000"
+    ],
+    [
+      "AAAAAAAAAAHAAAAA",
+      "40.5",
+      "74.965000",
+      "0.000000",
+      "24.850000"
+    ],
+    [
+      "AAAAAAAAAAHABAAA",
+      "30.0",
+      "71.600000",
+      "0.000000",
+      "48.680000"
+    ],
+    [
+      "AAAAAAAAAAHBAAAA",
+      "2.0",
+      "87.770000",
+      "0.000000",
+      "6.140000"
+    ],
+    [
+      "AAAAAAAAAAHCBAAA",
+      "89.5",
+      "121.800000",
+      "469.455000",
+      "78.055000"
+    ],
+    [
+      "AAAAAAAAAAHDAAAA",
+      "31.0",
+      "140.680000",
+      "0.000000",
+      "46.130000"
+    ],
+    [
+      "AAAAAAAAAAHDBAAA",
+      "33.0",
+      "69.713333",
+      "0.000000",
+      "44.870000"
+    ],
+    [
+      "AAAAAAAAAAHEAAAA",
+      "29.0",
+      "127.760000",
+      "0.000000",
+      "123.920000"
+    ],
+    [
+      "AAAAAAAAAAHGAAAA",
+      "60.333333333333336",
+      "68.536666",
+      "562.620000",
+      "51.013333"
+    ],
+    [
+      "AAAAAAAAAAHJAAAA",
+      "9.0",
+      "136.550000",
+      "0.000000",
+      "80.560000"
+    ],
+    [
+      "AAAAAAAAAAHKAAAA",
+      "34.333333333333336",
+      "82.883333",
+      "162.083333",
+      "12.650000"
+    ],
+    [
+      "AAAAAAAAAAHMAAAA",
+      "84.0",
+      "37.000000",
+      "0.000000",
+      "14.060000"
+    ],
+    [
+      "AAAAAAAAAAHNAAAA",
+      "86.5",
+      "15.300000",
+      "120.245000",
+      "4.585000"
+    ],
+    [
+      "AAAAAAAAAAHPAAAA",
+      "68.0",
+      "117.050000",
+      "452.330000",
+      "49.350000"
+    ]
+  ],
+  "plan": "plans/q7-Control-on-01-s0.txt",
+  "display_error": null,
+  "metrics": [
+    {
+      "index": 0,
+      "node": "DistributedExec",
+      "columns": [
+        "i_item_id",
+        "agg1",
+        "agg2",
+        "agg3",
+        "agg4"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "dynamic_filter_global_hash_merges": 0,
+        "dynamic_filter_updates_received": 0,
+        "local_coordinator_channels": 0,
+        "plan_bytes_sent": 171174,
+        "plan_send_latency_avg": 2067000,
+        "plan_send_latency_max": 5037000,
+        "remote_coordinator_channels": 16
+      }
+    },
+    {
+      "index": 1,
+      "node": "SortPreservingMergeExec",
+      "columns": [
+        "i_item_id",
+        "agg1",
+        "agg2",
+        "agg3",
+        "agg4"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 93421,
+        "end_timestamp": 1790295182247471462,
+        "output_batches": 1,
+        "output_bytes": 31696,
+        "output_rows": 100,
+        "start_timestamp": 1790295181049007280
+      }
+    },
+    {
+      "index": 2,
+      "node": "NetworkCoalesceExec",
+      "columns": [
+        "i_item_id",
+        "agg1",
+        "agg2",
+        "agg3",
+        "agg4"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 66000,
+        "elapsed_compute": 1144370,
+        "local_connections_used": 0,
+        "max_mem_used": 34287,
+        "msg_count": 32,
+        "network_latency_count": 32,
+        "network_latency_first": 162655938,
+        "network_latency_max": 162666908,
+        "network_latency_min": 508682,
+        "network_latency_p50": 760245,
+        "network_latency_p95": 162612134,
+        "network_latency_sum": 652143013,
+        "output_bytes": 110326,
+        "output_rows": 1529
+      }
+    },
+    {
+      "index": 3,
+      "node": "ProjectionExec",
+      "columns": [
+        "i_item_id",
+        "agg1",
+        "agg2",
+        "agg3",
+        "agg4"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 55631,
+        "end_timestamp": 10197978842052551826,
+        "expr_0_eval_time": 5048,
+        "expr_1_eval_time": 2115,
+        "expr_2_eval_time": 2635,
+        "expr_3_eval_time": 2053,
+        "expr_4_eval_time": 2076,
+        "output_batches": 16,
+        "output_bytes": 1158968,
+        "output_rows": 1529,
+        "start_timestamp": 10197978823082273598
+      }
+    },
+    {
+      "index": 4,
+      "node": "SortExec(TopK)",
+      "columns": [
+        "i_item_id",
+        "avg(store_sales.ss_quantity)",
+        "avg(store_sales.ss_list_price)",
+        "avg(store_sales.ss_coupon_amt)",
+        "avg(store_sales.ss_sales_price)"
+      ],
+      "dynamic_filter": true,
+      "values": {
+        "elapsed_compute": 3571816,
+        "end_timestamp": 10197978842050028710,
+        "output_batches": 16,
+        "output_bytes": 1158968,
+        "output_rows": 1529,
+        "row_replacements": 4733,
+        "start_timestamp": 10197978823082225632
+      }
+    },
+    {
+      "index": 5,
+      "node": "AggregateExec",
+      "columns": [
+        "i_item_id",
+        "avg(store_sales.ss_quantity)",
+        "avg(store_sales.ss_list_price)",
+        "avg(store_sales.ss_coupon_amt)",
+        "avg(store_sales.ss_sales_price)"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 170142,
+        "aggregation_time": 10951243,
+        "elapsed_compute": 24958309,
+        "emitting_time": 13184265,
+        "end_timestamp": 10197978842050051232,
+        "output_batches": 16,
+        "output_bytes": 4327120,
+        "output_rows": 39446,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197978823081727043,
+        "time_calculating_group_ids": 173403
+      }
+    },
+    {
+      "index": 6,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "i_item_id",
+        "avg(store_sales.ss_quantity)[count]",
+        "avg(store_sales.ss_quantity)[sum]",
+        "avg(store_sales.ss_list_price)[count]",
+        "avg(store_sales.ss_list_price)[sum]",
+        "avg(store_sales.ss_coupon_amt)[count]",
+        "avg(store_sales.ss_coupon_amt)[sum]",
+        "avg(store_sales.ss_sales_price)[count]",
+        "avg(store_sales.ss_sales_price)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 1501124,
+        "elapsed_compute": 11858393,
+        "local_connections_used": 4,
+        "max_mem_used": 981372,
+        "msg_count": 96,
+        "network_latency_count": 96,
+        "network_latency_first": 95592268,
+        "network_latency_max": 257149485,
+        "network_latency_min": 6902006,
+        "network_latency_p50": 57454181,
+        "network_latency_p95": 176633821,
+        "network_latency_sum": 724975833,
+        "output_bytes": 11019416,
+        "output_rows": 72021
+      }
+    },
+    {
+      "index": 7,
+      "node": "RepartitionExec",
+      "columns": [
+        "i_item_id",
+        "avg(store_sales.ss_quantity)[count]",
+        "avg(store_sales.ss_quantity)[sum]",
+        "avg(store_sales.ss_list_price)[count]",
+        "avg(store_sales.ss_list_price)[sum]",
+        "avg(store_sales.ss_coupon_amt)[count]",
+        "avg(store_sales.ss_coupon_amt)[sum]",
+        "avg(store_sales.ss_sales_price)[count]",
+        "avg(store_sales.ss_sales_price)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 177491,
+        "end_timestamp": 3898427218651754783,
+        "fetch_time": 18361300468,
+        "output_batches": 64,
+        "output_bytes": 81788928,
+        "output_rows": 72021,
+        "repartition_time": 8448975,
+        "send_time": 4636163,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898427145096409148
+      }
+    },
+    {
+      "index": 8,
+      "node": "AggregateExec",
+      "columns": [
+        "i_item_id",
+        "avg(store_sales.ss_quantity)[count]",
+        "avg(store_sales.ss_quantity)[sum]",
+        "avg(store_sales.ss_list_price)[count]",
+        "avg(store_sales.ss_list_price)[sum]",
+        "avg(store_sales.ss_coupon_amt)[count]",
+        "avg(store_sales.ss_coupon_amt)[sum]",
+        "avg(store_sales.ss_sales_price)[count]",
+        "avg(store_sales.ss_sales_price)[sum]"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "aggregate_arguments_time": 267260,
+        "aggregation_time": 17424762,
+        "elapsed_compute": 18835349,
+        "emitting_time": 178111,
+        "end_timestamp": 10197978841474502393,
+        "output_batches": 16,
+        "output_bytes": 14027048,
+        "output_rows": 72021,
+        "reduction_factor": 0,
+        "skipped_aggregation_rows": 0,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197978823087524376,
+        "time_calculating_group_ids": 49378
+      }
+    },
+    {
+      "index": 9,
+      "node": "HashJoinExec",
+      "columns": [
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 4,
+        "avg_fanout": 0,
+        "build_input_batches": 64,
+        "build_input_rows": 1992,
+        "build_mem_used": 23936,
+        "build_time": 597050,
+        "elapsed_compute": 2506610,
+        "end_timestamp": 10197978836970416409,
+        "input_batches": 16,
+        "input_rows": 76828,
+        "join_time": 1788216,
+        "output_batches": 16,
+        "output_bytes": 28853156,
+        "output_rows": 75601,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197978823086722751
+      }
+    },
+    {
+      "index": 10,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "p_promo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 41403,
+        "end_timestamp": 7161180724305708854,
+        "output_batches": 64,
+        "output_bytes": 15936,
+        "output_rows": 1992,
+        "start_timestamp": 7161180724198577215
+      }
+    },
+    {
+      "index": 11,
+      "node": "NetworkBroadcastExec",
+      "columns": [
+        "p_promo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 21948,
+        "elapsed_compute": 616187,
+        "local_connections_used": 1,
+        "max_mem_used": 18683,
+        "msg_count": 60,
+        "network_latency_count": 60,
+        "network_latency_first": 41556404,
+        "network_latency_max": 82515152,
+        "network_latency_min": 33484939,
+        "network_latency_p50": 74920707,
+        "network_latency_p95": 82007246,
+        "network_latency_sum": 1377363901,
+        "output_bytes": 15936,
+        "output_rows": 1992
+      }
+    },
+    {
+      "index": 12,
+      "node": "BroadcastExec",
+      "columns": [
+        "p_promo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 13,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "p_promo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 196283,
+        "bytes_scanned": 5444,
+        "elapsed_compute": 19980,
+        "end_timestamp": 4283301016845047930,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 19,
+        "files_processed": 19,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 12638560,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 16,
+        "output_bytes": 3984,
+        "output_rows": 498,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 41,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 498,
+        "pushdown_rows_pruned": 2,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 72375,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 4283301016787922101,
+        "statistics_eval_time": 238358,
+        "time_elapsed_opening": 15980829,
+        "time_elapsed_processing": 15399445,
+        "time_elapsed_scanning_total": 11784771,
+        "time_elapsed_scanning_until_data": 10093998
+      }
+    },
+    {
+      "index": 14,
+      "node": "HashJoinExec",
+      "columns": [
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 4,
+        "avg_fanout": 0,
+        "build_input_batches": 64,
+        "build_input_rows": 408000,
+        "build_mem_used": 17342560,
+        "build_time": 3450768,
+        "elapsed_compute": 8237521,
+        "end_timestamp": 10197978836978153759,
+        "input_batches": 16,
+        "input_rows": 76828,
+        "join_time": 4238214,
+        "output_batches": 16,
+        "output_bytes": 29561448,
+        "output_rows": 76828,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197978823086867226
+      }
+    },
+    {
+      "index": 15,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "i_item_sk",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 22892,
+        "end_timestamp": 7161180724311639436,
+        "output_batches": 64,
+        "output_bytes": 15710560,
+        "output_rows": 408000,
+        "start_timestamp": 7161180724198657820
+      }
+    },
+    {
+      "index": 16,
+      "node": "NetworkBroadcastExec",
+      "columns": [
+        "i_item_sk",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 3367250,
+        "elapsed_compute": 13611137,
+        "local_connections_used": 1,
+        "max_mem_used": 2243588,
+        "msg_count": 60,
+        "network_latency_count": 60,
+        "network_latency_first": 10429138,
+        "network_latency_max": 13427158,
+        "network_latency_min": 2227198,
+        "network_latency_p50": 5620835,
+        "network_latency_p95": 10365873,
+        "network_latency_sum": 123786154,
+        "output_bytes": 9792000,
+        "output_rows": 408000
+      }
+    },
+    {
+      "index": 17,
+      "node": "BroadcastExec",
+      "columns": [
+        "i_item_sk",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 18,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "i_item_sk",
+        "i_item_id"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 1559,
+        "bytes_scanned": 2159344,
+        "elapsed_compute": 28484,
+        "end_timestamp": 4283301016779285277,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 19,
+        "files_processed": 19,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 998700,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 16,
+        "output_bytes": 3470560,
+        "output_rows": 102000,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 38,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 0,
+        "pushdown_rows_pruned": 0,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 38,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 4283301016755429418,
+        "statistics_eval_time": 38,
+        "time_elapsed_opening": 2257021,
+        "time_elapsed_processing": 7439009,
+        "time_elapsed_scanning_total": 9302079,
+        "time_elapsed_scanning_until_data": 5914523
+      }
+    },
+    {
+      "index": 19,
+      "node": "HashJoinExec",
+      "columns": [
+        "ss_item_sk",
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 4,
+        "avg_fanout": 0,
+        "build_input_batches": 4,
+        "build_input_rows": 1464,
+        "build_mem_used": 51160,
+        "build_time": 131295,
+        "elapsed_compute": 7711806,
+        "end_timestamp": 10197978836978465803,
+        "input_batches": 55,
+        "input_rows": 392830,
+        "join_time": 7579905,
+        "output_batches": 16,
+        "output_bytes": 8994816,
+        "output_rows": 76828,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197978823086983018
+      }
+    },
+    {
+      "index": 20,
+      "node": "CoalescePartitionsExec",
+      "columns": [
+        "d_date_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 21423,
+        "end_timestamp": 7161180724313987181,
+        "output_batches": 4,
+        "output_bytes": 45304,
+        "output_rows": 1464,
+        "start_timestamp": 7161180724198714950
+      }
+    },
+    {
+      "index": 21,
+      "node": "NetworkBroadcastExec",
+      "columns": [
+        "d_date_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 7035,
+        "elapsed_compute": 351346,
+        "local_connections_used": 1,
+        "max_mem_used": 5295,
+        "msg_count": 15,
+        "network_latency_count": 15,
+        "network_latency_first": 5390342,
+        "network_latency_max": 63462628,
+        "network_latency_min": 4331315,
+        "network_latency_p50": 5045972,
+        "network_latency_p95": 5045972,
+        "network_latency_sum": 82706021,
+        "output_bytes": 11712,
+        "output_rows": 1464
+      }
+    },
+    {
+      "index": 22,
+      "node": "BroadcastExec",
+      "columns": [
+        "d_date_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {}
+    },
+    {
+      "index": 23,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "d_date_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 812278,
+        "bytes_scanned": 63871,
+        "elapsed_compute": 1663,
+        "end_timestamp": 4283301016913293891,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 19,
+        "files_processed": 19,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 12670937,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 1,
+        "output_bytes": 36520,
+        "output_rows": 366,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 273320,
+        "page_index_load_skipped": 3,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 366,
+        "pushdown_rows_pruned": 72683,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 89587,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 4283301016833900663,
+        "statistics_eval_time": 770718,
+        "time_elapsed_opening": 29151929,
+        "time_elapsed_processing": 17821751,
+        "time_elapsed_scanning_total": 9253574,
+        "time_elapsed_scanning_until_data": 9210974
+      }
+    },
+    {
+      "index": 24,
+      "node": "HashJoinExec",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "array_map_created_count": 0,
+        "avg_fanout": 0,
+        "build_input_batches": 16,
+        "build_input_rows": 27440,
+        "build_mem_used": 984624,
+        "build_time": 2676761,
+        "elapsed_compute": 403362554,
+        "end_timestamp": 10197978824207287956,
+        "input_batches": 3546,
+        "input_rows": 28800991,
+        "join_time": 400508955,
+        "output_batches": 55,
+        "output_bytes": 34580480,
+        "output_rows": 392830,
+        "probe_hit_rate": 0,
+        "start_timestamp": 10197978823087099555
+      }
+    },
+    {
+      "index": 25,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "cd_demo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 108168,
+        "elapsed_compute": 1990645,
+        "local_connections_used": 1,
+        "max_mem_used": 107733,
+        "msg_count": 24,
+        "network_latency_count": 24,
+        "network_latency_first": 42026931,
+        "network_latency_max": 124817752,
+        "network_latency_min": 37269231,
+        "network_latency_p50": 80393319,
+        "network_latency_p95": 124870847,
+        "network_latency_sum": 694304152,
+        "output_bytes": 219520,
+        "output_rows": 27440
+      }
+    },
+    {
+      "index": 26,
+      "node": "RepartitionExec",
+      "columns": [
+        "cd_demo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 29426,
+        "end_timestamp": 10197978823881638315,
+        "fetch_time": 137512357,
+        "output_batches": 16,
+        "output_bytes": 1048576,
+        "output_rows": 27440,
+        "repartition_time": 496980,
+        "send_time": 259984,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 10197978823556548433
+      }
+    },
+    {
+      "index": 27,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "cd_demo_sk"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 1888708,
+        "bytes_scanned": 20685612,
+        "elapsed_compute": 36192,
+        "end_timestamp": 4283301017548239137,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 19,
+        "files_processed": 19,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 602550,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 16,
+        "output_bytes": 1048576,
+        "output_rows": 27440,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 640269,
+        "page_index_load_skipped": 3,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 27440,
+        "pushdown_rows_pruned": 1893360,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 7478300,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 4283301017225118416,
+        "statistics_eval_time": 1857983,
+        "time_elapsed_opening": 12673859,
+        "time_elapsed_processing": 121429654,
+        "time_elapsed_scanning_total": 125624085,
+        "time_elapsed_scanning_until_data": 123811809
+      }
+    },
+    {
+      "index": 28,
+      "node": "NetworkShuffleExec",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_cdemo_sk",
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "bytes_transferred": 451598682,
+        "elapsed_compute": 1715091733,
+        "local_connections_used": 4,
+        "max_mem_used": 22754862,
+        "msg_count": 2711,
+        "network_latency_count": 2711,
+        "network_latency_first": 172688679,
+        "network_latency_max": 1171833159,
+        "network_latency_min": 5862743,
+        "network_latency_p50": 288538625,
+        "network_latency_p95": 852247601,
+        "network_latency_sum": 75270501868,
+        "output_bytes": 2441260721,
+        "output_rows": 28800991
+      }
+    },
+    {
+      "index": 29,
+      "node": "RepartitionExec",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_cdemo_sk",
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "elapsed_compute": 7269496,
+        "end_timestamp": 3898427208451993917,
+        "fetch_time": 5380084840,
+        "output_batches": 3546,
+        "output_bytes": 2462261248,
+        "output_rows": 28800991,
+        "repartition_time": 1384400867,
+        "send_time": 1248510960,
+        "spill_count": 0,
+        "spilled_bytes": 0,
+        "spilled_rows": 0,
+        "start_timestamp": 3898427149506970618
+      }
+    },
+    {
+      "index": 30,
+      "node": "DistributedLeafExec",
+      "columns": [
+        "ss_sold_date_sk",
+        "ss_item_sk",
+        "ss_cdemo_sk",
+        "ss_promo_sk",
+        "ss_quantity",
+        "ss_list_price",
+        "ss_sales_price",
+        "ss_coupon_amt"
+      ],
+      "dynamic_filter": false,
+      "values": {
+        "batches_split": 0,
+        "bloom_filter_eval_time": 3241,
+        "bytes_scanned": 1523959845,
+        "elapsed_compute": 28326292,
+        "end_timestamp": 10356897249592728880,
+        "file_open_errors": 0,
+        "file_scan_errors": 0,
+        "files_opened": 31,
+        "files_processed": 31,
+        "files_ranges_pruned_statistics": 0,
+        "limit_pruned_row_groups": 0,
+        "metadata_load_time": 1821965,
+        "num_predicate_creation_errors": 0,
+        "output_batches": 3520,
+        "output_bytes": 2445769168,
+        "output_rows": 28800991,
+        "output_rows_skew": 0,
+        "page_index_eval_time": 62,
+        "page_index_pages_pruned": 0,
+        "page_index_rows_pruned": 0,
+        "predicate_cache_inner_records": 0,
+        "predicate_cache_records": 0,
+        "predicate_evaluation_errors": 0,
+        "pushdown_rows_matched": 0,
+        "pushdown_rows_pruned": 0,
+        "row_groups_pruned_bloom_filter": 0,
+        "row_groups_pruned_dynamic_filter": 0,
+        "row_groups_pruned_statistics": 0,
+        "row_pushdown_eval_time": 62,
+        "scan_efficiency_ratio": 0,
+        "start_timestamp": 10356897223127850681,
+        "statistics_eval_time": 62,
+        "time_elapsed_opening": 4740710,
+        "time_elapsed_processing": 3592661855,
+        "time_elapsed_scanning_total": 12817243514,
+        "time_elapsed_scanning_until_data": 1792572554
+      }
+    }
+  ]
+}

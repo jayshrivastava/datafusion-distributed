@@ -1,0 +1,972 @@
+diff --git a/benchmarks/README.md b/benchmarks/README.md
+index 2e7cf02..34526d7 100644
+--- a/benchmarks/README.md
++++ b/benchmarks/README.md
+@@ -1,5 +1,13 @@
+ # Local DataFusion benchmarks
+ 
++### Selective distributed hash join
++
++The standalone `dynamic-filter-join` binary compares dynamic filtering on/off
++and Parquet row pushdown on/off using four localhost worker processes with four
++target partitions each. It generates deterministic data, verifies results, and
++captures executed plans and metrics. See [the benchmark report](dynamic-filter-join.md)
++for commands, measurements, and the workload's limitations.
++
+ ### Generating Benchmarking data
+ 
+ Generate datasets alongside the integration-test fixtures under `testdata/`.
+diff --git a/src/coordinator/dynamic_filter_registry.rs b/src/coordinator/dynamic_filter_registry.rs
+index 72c1aff..f2b3256 100644
+--- a/src/coordinator/dynamic_filter_registry.rs
++++ b/src/coordinator/dynamic_filter_registry.rs
+@@ -1,9 +1,12 @@
++use super::partitioned_dynamic_filter::{HashRouting, merge_hash_predicates};
++use crate::common::TreeNodeExt;
+ use crate::dynamic_filtering::{discover_dynamic_filter_consumers, dynamic_filter_producer_schema};
+ use crate::{
+-    ApplyDynamicFilter, CoordinatorToWorkerMsg, MaybeEncoded, ProducedDynamicFilter, TaskKey,
++    ApplyDynamicFilter, CoordinatorToWorkerMsg, DistributedTaskContext, MaybeEncoded,
++    ProducedDynamicFilter, TaskKey,
+ };
+ use datafusion::arrow::datatypes::SchemaRef;
+-use datafusion::common::tree_node::{TreeNode, TreeNodeRecursion};
++use datafusion::common::tree_node::TreeNodeRecursion;
+ use datafusion::common::{
+     DataFusionError, HashMap, HashSet, Result, exec_datafusion_err, internal_datafusion_err,
+     internal_err,
+@@ -51,6 +54,7 @@ pub(super) struct PlannedDynamicFilter {
+     pub(super) consumer_tasks: HashSet<TaskKey>,
+     /// Latest accepted snapshot from each producer task.
+     pub(super) producer_filters: HashMap<TaskKey, PhysicalDynamicFilterNode>,
++    hash_routing: HashMap<TaskKey, HashRouting>,
+     /// Full dynamic filter containing the merged predicate and its completion state.
+     pub(super) merged: Option<PhysicalDynamicFilterNode>,
+     /// Immutable snapshot shared by local and remote delivery, encoded once per change.
+@@ -75,6 +79,7 @@ pub(super) struct DynamicFilterRegistryState {
+ pub(crate) struct DynamicFilterRegistry {
+     pub(super) state: Mutex<DynamicFilterRegistryState>,
+     dynamic_filter_updates_received: Count,
++    dynamic_filter_global_hash_merges: Count,
+     error_tx: Sender<DataFusionError>,
+     query_finished: CancellationToken,
+ }
+@@ -89,6 +94,8 @@ impl DynamicFilterRegistry {
+             state: Mutex::new(DynamicFilterRegistryState::default()),
+             dynamic_filter_updates_received: MetricBuilder::new(metrics)
+                 .global_counter("dynamic_filter_updates_received"),
++            dynamic_filter_global_hash_merges: MetricBuilder::new(metrics)
++                .global_counter("dynamic_filter_global_hash_merges"),
+             error_tx,
+             query_finished,
+         }
+@@ -103,61 +110,71 @@ impl DynamicFilterRegistry {
+         &self,
+         plan: &Arc<dyn ExecutionPlan>,
+         task_key: TaskKey,
++        task_count: usize,
++        task_ctx: &TaskContext,
+     ) -> Result<()> {
+         let mut producers = vec![];
+ 
+-        plan.apply(|node| {
+-            // `CollectLeft` joins broadcast an equivalent build side to every producer task,
+-            // so we can forward the first completed dynamic filter.
+-            //
+-            // TopK and MIN/MAX bounds are independently useful and incremental, so we can use
+-            // all updates.
+-            //
+-            // Any remaining dynamic filter should wait for completion and should be merged
+-            // at the coordinator before being applied.
+-            let merge_mode = if node
+-                .downcast_ref::<HashJoinExec>()
+-                .is_some_and(|join| matches!(join.partition_mode(), PartitionMode::CollectLeft))
+-            {
+-                DynamicFilterMergeMode::FirstProducerComplete
+-            } else if node.downcast_ref::<SortExec>().is_some()
+-                || node.downcast_ref::<AggregateExec>().is_some()
+-            {
+-                DynamicFilterMergeMode::Incremental
+-            } else {
+-                DynamicFilterMergeMode::AllProducersComplete
+-            };
+-            let produced_ids: HashSet<_> = node
+-                .dynamic_expressions_produced()
+-                .into_iter()
+-                .filter_map(|expression| {
+-                    expression
+-                        .downcast_ref::<DynamicFilterPhysicalExpr>()
+-                        .map(|_| expression.expression_id())
+-                })
+-                .map(|id| match id {
+-                    Some(id) => Ok(id),
+-                    None => {
+-                        internal_err!("DynamicFilterPhysicalExpr did not have an expression ID")
++        plan.apply_with_dt_ctx(
++            DistributedTaskContext {
++                task_index: task_key.task_number,
++                task_count,
++            },
++            |node, context| {
++                // `CollectLeft` joins broadcast an equivalent build side to every producer task,
++                // so we can forward the first completed dynamic filter.
++                //
++                // TopK and MIN/MAX bounds are independently useful and incremental, so we can use
++                // all updates.
++                //
++                // Any remaining dynamic filter should wait for completion and should be merged
++                // at the coordinator before being applied.
++                let merge_mode = if node
++                    .downcast_ref::<HashJoinExec>()
++                    .is_some_and(|join| matches!(join.partition_mode(), PartitionMode::CollectLeft))
++                {
++                    DynamicFilterMergeMode::FirstProducerComplete
++                } else if node.downcast_ref::<SortExec>().is_some()
++                    || node.downcast_ref::<AggregateExec>().is_some()
++                {
++                    DynamicFilterMergeMode::Incremental
++                } else {
++                    DynamicFilterMergeMode::AllProducersComplete
++                };
++                let produced_ids: HashSet<_> = node
++                    .dynamic_expressions_produced()
++                    .into_iter()
++                    .filter_map(|expression| {
++                        expression
++                            .downcast_ref::<DynamicFilterPhysicalExpr>()
++                            .map(|_| expression.expression_id())
++                    })
++                    .map(|id| match id {
++                        Some(id) => Ok(id),
++                        None => {
++                            internal_err!("DynamicFilterPhysicalExpr did not have an expression ID")
++                        }
++                    })
++                    .collect::<Result<_>>()?;
++                if !produced_ids.is_empty() {
++                    let schema = dynamic_filter_producer_schema(node.as_ref())?;
++                    for id in produced_ids {
++                        let routing = match node.downcast_ref::<HashJoinExec>() {
++                            Some(join) => HashRouting::for_join(join, context, task_ctx)?,
++                            None => None,
++                        };
++                        producers.push((id, merge_mode, Arc::clone(&schema), routing));
+                     }
+-                })
+-                .collect::<Result<_>>()?;
+-            if !produced_ids.is_empty() {
+-                let schema = dynamic_filter_producer_schema(node.as_ref())?;
+-                producers.extend(
+-                    produced_ids
+-                        .iter()
+-                        .map(|id| (*id, merge_mode, Arc::clone(&schema))),
+-                );
+-            }
+-            Ok(TreeNodeRecursion::Continue)
+-        })?;
++                }
++                Ok(TreeNodeRecursion::Continue)
++            },
++        )?;
+         // We can safely ignore anchors because they are not evaluated by network boundaries. This
+         // means they do not need updates forwarded to them.
+         let consumers = discover_dynamic_filter_consumers(plan)?.consumers;
+ 
+         let mut state = self.state.lock().expect("dynamic filter registry poisoned");
+-        for (id, merge_mode, producer_schema) in producers {
++        for (id, merge_mode, producer_schema, routing) in producers {
+             let filter = state.filters.entry(id).or_default();
+             if let Some(existing) = &filter.producer_schema
+                 && existing != &producer_schema
+@@ -176,6 +193,9 @@ impl DynamicFilterRegistry {
+                 None => merge_mode,
+             });
+             filter.producer_tasks.insert(task_key);
++            if let Some(routing) = routing {
++                filter.hash_routing.insert(task_key, routing);
++            }
+         }
+         for consumer in consumers {
+             state
+@@ -208,7 +228,7 @@ impl DynamicFilterRegistry {
+         state.sealed_stages.insert(stage_id);
+         let ids = state.filters.keys().copied().collect::<Vec<_>>();
+         for id in ids {
+-            if Self::try_merge(&mut state, id) {
++            if self.try_merge(&mut state, id) {
+                 self.dispatch(&mut state, id);
+             }
+         }
+@@ -254,14 +274,14 @@ impl DynamicFilterRegistry {
+             return;
+         }
+         filter.producer_filters.insert(task_key, *dynamic_filter);
+-        if Self::try_merge(&mut state, report.expression_id) {
++        if self.try_merge(&mut state, report.expression_id) {
+             self.dispatch(&mut state, report.expression_id);
+         }
+     }
+ 
+     /// Merges partial dynamic filters together for the provided dynamic filter
+     /// id only if there are enough updates present.
+-    fn try_merge(state: &mut DynamicFilterRegistryState, id: u64) -> bool {
++    fn try_merge(&self, state: &mut DynamicFilterRegistryState, id: u64) -> bool {
+         let Some(filter) = state.filters.get_mut(&id) else {
+             return false;
+         };
+@@ -292,14 +312,23 @@ impl DynamicFilterRegistry {
+         let Some((_, template)) = reports.first() else {
+             return false;
+         };
+-        let inner_expr = merge_predicates(
+-            reports
+-                .iter()
+-                .filter_map(|(_, report)| report.inner_expr.as_deref().cloned())
+-                .collect(),
+-            mode,
+-        )
+-        .map(Box::new);
++        let global_hash = (mode == DynamicFilterMergeMode::AllProducersComplete)
++            .then(|| merge_hash_predicates(&reports, &filter.hash_routing))
++            .flatten();
++        if global_hash.is_some() {
++            self.dynamic_filter_global_hash_merges.add(1);
++        }
++        let inner_expr = global_hash
++            .or_else(|| {
++                merge_predicates(
++                    reports
++                        .iter()
++                        .filter_map(|(_, report)| report.inner_expr.as_deref().cloned())
++                        .collect(),
++                    mode,
++                )
++            })
++            .map(Box::new);
+         let is_complete = mode == DynamicFilterMergeMode::FirstProducerComplete || all_complete;
+         if previous.is_some_and(|previous| {
+             previous.inner_expr == inner_expr && previous.is_complete == is_complete
+diff --git a/src/coordinator/mod.rs b/src/coordinator/mod.rs
+index 746052a..ba2f59d 100644
+--- a/src/coordinator/mod.rs
++++ b/src/coordinator/mod.rs
+@@ -1,6 +1,7 @@
+ mod distributed;
+ mod dynamic_filter_registry;
+ mod latency_metric;
++mod partitioned_dynamic_filter;
+ mod prepare_dynamic_plan;
+ mod prepare_static_plan;
+ mod query_coordinator;
+diff --git a/src/coordinator/query_coordinator.rs b/src/coordinator/query_coordinator.rs
+index 1a01a06..bdf3786 100644
+--- a/src/coordinator/query_coordinator.rs
++++ b/src/coordinator/query_coordinator.rs
+@@ -188,8 +188,12 @@ impl<'a> StageCoordinator<'a> {
+             task_number: task_i,
+         };
+ 
+-        self.dynamic_filter_registry
+-            .register_task(&plan, task_key)?;
++        self.dynamic_filter_registry.register_task(
++            &plan,
++            task_key,
++            self.task_count,
++            self.task_ctx,
++        )?;
+ 
+         let mut headers = get_config_extension_propagation_headers(session_config)?;
+         headers.extend(get_passthrough_headers(session_config));
+diff --git a/src/distributed_planner/distributed_query_planner.rs b/src/distributed_planner/distributed_query_planner.rs
+index 4a8b301..80393cc 100644
+--- a/src/distributed_planner/distributed_query_planner.rs
++++ b/src/distributed_planner/distributed_query_planner.rs
+@@ -138,6 +138,12 @@ fn create_distributed_plan(
+ 
+         let cfg = session.config_options();
+         plan = normalize_collect_joins(plan, cfg)?;
++        #[cfg(feature = "parquet")]
++        {
++            plan = super::insert_post_scan_dynamic_filters::insert_post_scan_dynamic_filters(
++                plan, cfg,
++            )?;
++        }
+ 
+         if plan.output_partitioning().partition_count() > 1 {
+             plan = Arc::new(CoalescePartitionsExec::new(plan));
+diff --git a/src/distributed_planner/mod.rs b/src/distributed_planner/mod.rs
+index de006f1..6ae4828 100644
+--- a/src/distributed_planner/mod.rs
++++ b/src/distributed_planner/mod.rs
+@@ -3,6 +3,8 @@ mod distributed_query_planner;
+ mod inject_network_boundaries;
+ mod insert_broadcast;
+ mod insert_children_isolator_union;
++#[cfg(feature = "parquet")]
++mod insert_post_scan_dynamic_filters;
+ mod network_boundary;
+ mod normalize_collect_joins;
+ mod partial_reduce_below_network_shuffles;
+diff --git a/src/dynamic_filtering/discovery.rs b/src/dynamic_filtering/discovery.rs
+index b90d7d1..71c6197 100644
+--- a/src/dynamic_filtering/discovery.rs
++++ b/src/dynamic_filtering/discovery.rs
+@@ -258,7 +258,8 @@ mod tests {
+         Stage 4
+           RepartitionExec
+             AggregateExec
+-              DataSourceExec consumers=[1]
++              FilterExec consumers=[1]
++                DataSourceExec consumers=[1]
+         Stage 3 remote_producers=[2]
+           RepartitionExec
+             HashJoinExec producers=[2]
+@@ -268,7 +269,8 @@ mod tests {
+         Stage 2
+           RepartitionExec
+             AggregateExec
+-              DataSourceExec consumers=[2]
++              FilterExec consumers=[2]
++                DataSourceExec consumers=[2]
+         Stage 1
+           RepartitionExec
+             FilterExec
+@@ -316,7 +318,8 @@ mod tests {
+         Stage 2
+           RepartitionExec
+             AggregateExec
+-              DataSourceExec consumers=[1]
++              FilterExec consumers=[1]
++                DataSourceExec consumers=[1]
+         Stage 1
+           RepartitionExec
+             AggregateExec
+diff --git a/tests/clickbench_plans_test.rs b/tests/clickbench_plans_test.rs
+index 802f4da..5e21c51 100644
+--- a/tests/clickbench_plans_test.rs
++++ b/tests/clickbench_plans_test.rs
+@@ -1,15 +1,20 @@
+ #[cfg(all(feature = "integration", feature = "clickbench", test))]
+ mod tests {
+     use datafusion::error::Result;
++    use datafusion::physical_plan::collect;
+     use datafusion_distributed::test_utils::in_memory_channel_resolver::start_in_memory_context;
++    use datafusion_distributed::test_utils::insta::settings;
+     use datafusion_distributed::{
+-        DefaultSessionBuilder, DistributedExec, DistributedExt, assert_snapshot, display_plan_ascii,
++        DefaultSessionBuilder, DistributedExec, DistributedExt, assert_snapshot,
++        display_plan_ascii, rewrite_distributed_plan_with_dynamic_filters,
+     };
+     use datafusion_distributed_benchmarks::datasets::{
+         clickbench, output::DatasetOutput, register_tables,
+     };
++    use insta::Settings;
+     use std::ops::Range;
+     use std::path::Path;
++    use std::sync::Arc;
+     use tokio::sync::OnceCell;
+ 
+     const NUM_WORKERS: usize = 4;
+@@ -545,25 +550,66 @@ mod tests {
+     }
+ 
+     #[tokio::test]
+-    #[ignore = "result sets were not equal: Internal error: Row content differs between result sets\nLeft set size: 10, Right set size: 10\n\nRows only in left (5 total):\n  d181d0bbd0b0d0b2d0bbd18fd182d18c20d0bfd0bed180d0bed0b4d0b8d182d181d18f20d0bed182d0b5d0bbd0b8203230313320d181d0bcd0bed182d180d0b5d182d18c|687474703a253246253246766b2e636f6d2e75612f676f6f676c652d6a61726b6f76736b6179612d4c697065636b64|1\n  d0b1d0b0d0bdd0bad0bed0bcd0b0d182d0b5d180d0b8d0b0d0bbd18b20d181d0bcd0bed182d180d0b5d182d18c|687474703a2f2f6f72656e627572672e6972722e72752532466b7572746b692532462532467777772e676f6f676c652e72752f6d617a64612d332d6b6f6d6e2d6b762d4b617a616e2e74757475746f72736b2f64657461696c|1\n  d0bcd0bed0bdd0b8d182d18c20d0bad0b0d0bad0bed0b520d0bed0b7d0b5d180d0b0|687474703a2f2f6175746f2e7269612e75612f6175746f5f69643d30266f726465723d46616c7365266d696e707269782e72752f6b617465676f726979612f767369652d646c69612d647275676f652f6d61746572696e7374766f2f676f6f676c652d706f6c697331343334343532|1\n  d181d0bad0b0d187d0b0d182d18c20d0b4d0b5d0bdd0b5d0b320d181d183d180d0b3d183d182|687474703a2f2f7469656e736b6169612d6d6f64612d627269657469656c6b612d6b6f736b6f76736b2f64657461696c2e676f6f676c65|1\n  d0b220d0b0d0b2d0b3d183d181d1822032343720d0b3d180d183d181d182d0b8d0bcd0bed188d0bad0b020d0bdd0b020d0bad180d0b8d181d182d180d0b0d182|687474703a2f2f7469656e736b6169612d6d6f64612d627269756b692f676f6f676c652e72752f7e61706f6b2e72752f635f312d755f313138383839352c39373536|1\n\nRows only in right (5 total):\n  d0bcd0bed0b4d0b5d0bad18120d183d0bbd0b8d186d0b5d0bdd0b7d0b8d0bdd0bed0b2d0b020d0b3d0bed0b2d18fd0b4d0b8d0bdd0b0|687474703a2f2f73616d6172612e6972722e72752f636174616c6f675f676f6f676c652d636865726e796a2d393233353636363635372f3f64617465|1\n  d0bbd0b0d0b2d0bfd0bbd0b0d0bdd188d0b5d182d0bdd0b8d18520d183d181d0bbd0bed0b2d0b0d0bcd0b820d0b2d181d0b520d181d0b5d180d0b8d0b820d0b4d0b0d182d0b020d186d0b5d0bcd0b5d0bdd0b8|687474703a2f2f73616d6172612e6972722e72752f636174616c6f675f676f6f676c654d425225323661642533443930253236707a|1\n  d0bad0b0d0ba20d0bfd180d0bed0b4d0b0d0bcd0b820d0b4d0bbd18f20d0b4d0b5d0b2d183d188d0bad0b8|687474703a253246253246777777772e626f6e707269782e7275253235326625323532663737363925323532663131303931392d6c65766f652d676f6f676c652d7368746f72792e72752f666f72756d2f666f72756d2e6d617465722e72752f6461696c792f63616c63756c61746f72|1\n  d0b6d0b0d180d0b5d0bdd18cd18f20d0b32ed181d183d180d0bed0b2d0b0d0bdd0b8d0b520d0b2d0bed180d0bed0bdd0b5d0b6d181d0bad0b0d18f20d0bed0b1d0bbd0b0d181d182d0bed0bfd180d0b8d0bbd0b520d0bfd0bed181d0bbd0b5d0b4d0bdd0b8d0b520d0bad0bed181d18b|687474703a2f2f756b7261696e627572672f65636f2d6d6c656b2f65636f6e646172792f73686f77746f7069632e7068703f69643d3436333837362e68746d6c3f69643d32303634313333363631253246676f6f676c652d4170706c655765624b69742532463533372e333620284b48544d4c2c206c696b65|1\n  d180d0b8d0be20d0bdd0b020d0bad0b0d180d182d0bed187d0bdd0b8d186d0b020d181d0bcd0bed182d180d0b5d182d18c20d0bed0bdd0bbd0b0d0b9d0bd|687474703a2f2f73616d6172612e6972722e72752f636174616c6f675f676f6f676c654d425225323661642533443930253236707a|1.\nThis issue was likely caused by a bug in DataFusion's code. Please help us to resolve this by filing a bug report in our issue tracker: https://github.com/apache/datafusion/issues"]
+     async fn test_clickbench_21() -> Result<()> {
+         let display = test_clickbench_query("q21").await?;
+-        assert_snapshot!(display, @"");
++        assert_snapshot!(display, @r"
++        ┌───── DistributedExec
++        │ SortPreservingMergeExec: [c@2 DESC], fetch=10
++        │   [Stage 2] => NetworkCoalesceExec: output_partitions=6, input_tasks=2
++        └──────────────────────────────────────────────────
++          ┌───── Stage 2 ── tasks=2, partitions=3
++          │ ProjectionExec: expr=[SearchPhrase@0 as SearchPhrase, min(hits.URL)@1 as min(hits.URL), count(Int64(1))@2 as c]
++          │   SortExec: TopK(fetch=10), expr=[count(Int64(1))@2 DESC], preserve_partitioning=[true]
++          │     AggregateExec: mode=FinalPartitioned, gby=[SearchPhrase@0 as SearchPhrase], aggr=[min(hits.URL), count(Int64(1))]
++          │       [Stage 1] => NetworkShuffleExec: output_partitions=3, input_tasks=4
++          └──────────────────────────────────────────────────
++            ┌───── Stage 1 ── tasks=4, partitions=6
++            │ RepartitionExec: partitioning=Hash([SearchPhrase@0], 6), input_partitions=3
++            │   AggregateExec: mode=Partial, gby=[SearchPhrase@1 as SearchPhrase], aggr=[min(hits.URL), count(Int64(1))]
++            │     FilterExec: SearchPhrase@1 !=  AND CAST(URL@0 AS Utf8View) LIKE %google%
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(URL@13 AS Utf8View) LIKE %google%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(URL@13 AS Utf8View) LIKE %google%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(URL@13 AS Utf8View) LIKE %google%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(URL@13 AS Utf8View) LIKE %google%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            └──────────────────────────────────────────────────
++        ");
+         Ok(())
+     }
+ 
+     #[tokio::test]
+-    #[ignore = "result sets were not equal: Internal error: Row content differs between result sets\nLeft set size: 10, Right set size: 10\n\nRows only in left (1 total):\n  d0bad0b0d0bad0bed0b920d0bfd0bbd0bed189d0b0d0b4d0bad0b8d0bcd0b820d0b4d0bed181d182d0b0d0b2d0bad0b8|687474703a253246253246766b2e636f6d2f696672616d652d6f77612e68746d6c3f313d31266369643d353737266f6b693d31266f705f63617465676f72795f69645d3d332673656c656374|d092d0b0d0bad0b0d0bdd181d0b8d18f20d091d0a0d090d09ad090d09d20d090d09dd094d0a0d095d0a1202d20d0bfd0bed0bfd0b0d0bbd0b820d0bad183d0bfd0b8d182d18c20d0b4d0bed0bcd0bed0b5d187d0bdd18bd0b520d188d0bad0b0d184d0b020476f6f676c652e636f6d203a3a20d0bad0bed182d182d0b5d0bad181d1822c20d091d183d180d18fd182d0bdd0b8d0bad0b820d0b4d0bbd18f20d0bfd0b5d187d18c20d0bcd0b5d0b1d0b5d0bbd18cd0b520d0b4d0bbd18f20d0b4d0b5d0b2d183d188d0bad0b0|5|1\n\nRows only in right (1 total):\n  d0bad0bed0bfd182d0b8d0bcd0b8d0bad0b2d0b8d0b4d18b20d18ed180d0b8d0b920d0bfd0bed181d0bbd0b5d0b4d0bdd18fd18f|68747470733a2f2f70726f64756b747925324670756c6f76652e72752f626f6f6b6c79617474696f6e2d7761722d73696e696a2d393430343139342c3936323435332f666f746f|d09bd0b5d0b3d0bad0be20d0bdd0b020d183d187d0b0d181d182d0bdd18bd0b520d183d187d0b0d181d182d0bdd0b8d0bad0bed0b22e2c20d0a6d0b5d0bdd18b202d20d0a1d182d0b8d0bbd18cd0bdd0b0d18f20d0bfd0b0d180d0bdd0b5d0bc2e20d0a1d0b0d0b3d0b0d0bdd180d0bed0b320d0b4d0bed0b3d0b0d0b4d0b5d0bdd0b8d18f203a20d0a2d183d180d186d0b8d0b82c20d0bad183d0bfd0b8d182d18c20d18320313020d0b4d0bdd0b520d0bad0bed0bbd18cd0bdd18bd0b520d0bcd0b0d188d0b8d0bdd0bad0b820d0bdd0b520d0bfd180d0b5d0b4d181d182d0b0d0b2d0bad0b8202d20d09dd0bed0b2d0b0d18f20d18120d0b8d0b7d0b1d0b8d0b5d0bdd0b8d0b520d181d0bfd180d0bed0b4d0b0d0b6d0b03a20d0bad0bed182d18fd182d0b0203230313420d0b32ed0b22e20d0a6d0b5d0bdd0b03a2034373530302d313045434f30363020e28093202d2d2d2d2d2d2d2d20d0bad183d0bfd0b8d182d18c20d0bad0b2d0b0d180d182d0b8d180d18320d09ed180d0b5d0bdd0b1d183d180d0b32028d0a0d0bed181d181d0b8d0b82047616c616e7472617820466c616d696c6961646120476f6f676c652c204ed0be20313820d184d0bed182d0bed0bad0bed0bdd0b2d0b5d180d0ba20d0a1d183d0bfd0b5d18020d09ad0b0d180d0b4d0b8d0b3d0b0d0bd|5|1.\nThis issue was likely caused by a bug in DataFusion's code. Please help us to resolve this by filing a bug report in our issue tracker: https://github.com/apache/datafusion/issues"]
+     async fn test_clickbench_22() -> Result<()> {
+         let display = test_clickbench_query("q22").await?;
+-        assert_snapshot!(display, @"");
++        assert_snapshot!(display, @r"
++        ┌───── DistributedExec
++        │ SortPreservingMergeExec: [c@3 DESC], fetch=10
++        │   [Stage 2] => NetworkCoalesceExec: output_partitions=6, input_tasks=2
++        └──────────────────────────────────────────────────
++          ┌───── Stage 2 ── tasks=2, partitions=3
++          │ ProjectionExec: expr=[SearchPhrase@0 as SearchPhrase, min(hits.URL)@1 as min(hits.URL), min(hits.Title)@2 as min(hits.Title), count(Int64(1))@3 as c, count(DISTINCT hits.UserID)@4 as count(DISTINCT hits.UserID)]
++          │   SortExec: TopK(fetch=10), expr=[count(Int64(1))@3 DESC], preserve_partitioning=[true]
++          │     AggregateExec: mode=FinalPartitioned, gby=[SearchPhrase@0 as SearchPhrase], aggr=[min(hits.URL), min(hits.Title), count(Int64(1)), count(DISTINCT hits.UserID)]
++          │       [Stage 1] => NetworkShuffleExec: output_partitions=3, input_tasks=4
++          └──────────────────────────────────────────────────
++            ┌───── Stage 1 ── tasks=4, partitions=6
++            │ RepartitionExec: partitioning=Hash([SearchPhrase@0], 6), input_partitions=3
++            │   AggregateExec: mode=Partial, gby=[SearchPhrase@3 as SearchPhrase], aggr=[min(hits.URL), min(hits.Title), count(Int64(1)), count(DISTINCT hits.UserID)]
++            │     FilterExec: SearchPhrase@3 !=  AND CAST(Title@0 AS Utf8View) LIKE %Google% AND CAST(URL@2 AS Utf8View) NOT LIKE %.google.%
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[Title, UserID, URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(Title@2 AS Utf8View) LIKE %Google% AND CAST(URL@13 AS Utf8View) NOT LIKE %.google.%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[Title, UserID, URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(Title@2 AS Utf8View) LIKE %Google% AND CAST(URL@13 AS Utf8View) NOT LIKE %.google.%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[Title, UserID, URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(Title@2 AS Utf8View) LIKE %Google% AND CAST(URL@13 AS Utf8View) NOT LIKE %.google.%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            │         t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[Title, UserID, URL, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND CAST(Title@2 AS Utf8View) LIKE %Google% AND CAST(URL@13 AS Utf8View) NOT LIKE %.google.%, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++            └──────────────────────────────────────────────────
++        ");
+         Ok(())
+     }
+ 
+     #[tokio::test]
+     async fn test_clickbench_23() -> Result<()> {
+         let display = test_clickbench_query("q23").await?;
+-        assert_snapshot!(display, @"
++        let _guard = runtime_filter_settings().bind_to_scope();
++        assert_snapshot!(display, @r"
+         ┌───── DistributedExec
+         │ SortPreservingMergeExec: [EventTime@4 ASC NULLS LAST], fetch=10
+         │   [Stage 1] => NetworkCoalesceExec: output_partitions=12, input_tasks=4
+@@ -572,19 +618,19 @@ mod tests {
+           │ SortExec: TopK(fetch=10), expr=[EventTime@4 ASC NULLS LAST], preserve_partitioning=[true]
+           │   FilterExec: CAST(URL@13 AS Utf8View) LIKE %google%
+           │     DistributedLeafExec:
+-          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible
++          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ EventTime@4 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=EventTime_null_count@1 != row_count@2 AND EventTime_min@0 < <runtime>, required_guarantees=[]
+           │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible
+           │       t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible
+-          │       t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible
++          │       t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[WatchID, JavaEnable, Title, GoodEvent, EventTime, EventDate, CounterID, ClientIP, RegionID, UserID, CounterClass, OS, UserAgent, URL, Referer, IsRefresh, RefererCategoryID, RefererRegionID, URLCategoryID, URLRegionID, ResolutionWidth, ResolutionHeight, ResolutionDepth, FlashMajor, FlashMinor, FlashMinor2, NetMajor, NetMinor, UserAgentMajor, UserAgentMinor, CookieEnable, JavascriptEnable, IsMobile, MobilePhone, MobilePhoneModel, Params, IPNetworkID, TraficSourceID, SearchEngineID, SearchPhrase, AdvEngineID, IsArtifical, WindowClientWidth, WindowClientHeight, ClientTimeZone, ClientEventTime, SilverlightVersion1, SilverlightVersion2, SilverlightVersion3, SilverlightVersion4, PageCharset, CodeVersion, IsLink, IsDownload, IsNotBounce, FUniqID, OriginalURL, HID, IsOldCounter, IsEvent, IsParameter, DontCountHits, WithHash, HitColor, LocalEventTime, Age, Sex, Income, Interests, Robotness, RemoteIP, WindowName, OpenerName, HistoryLength, BrowserLanguage, BrowserCountry, SocialNetwork, SocialAction, HTTPError, SendTiming, DNSTiming, ConnectTiming, ResponseStartTiming, ResponseEndTiming, FetchTiming, SocialSourceNetworkID, SocialSourcePage, ParamPrice, ParamOrderID, ParamCurrency, ParamCurrencyID, OpenstatServiceName, OpenstatCampaignID, OpenstatAdID, OpenstatSourceID, UTMSource, UTMMedium, UTMCampaign, UTMContent, UTMTerm, FromTag, HasGCLID, RefererHash, URLHash, CLID], file_type=parquet, predicate=CAST(URL@13 AS Utf8View) LIKE %google% AND DynamicFilter [ EventTime@4 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=EventTime_null_count@1 != row_count@2 AND EventTime_min@0 < <runtime>, required_guarantees=[]
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+     }
+ 
+     #[tokio::test]
+-    #[ignore = "result sets were not equal: Internal error: Row content differs between result sets\nLeft set size: 10, Right set size: 10\n\nRows only in left (1 total):\n  d0b2d181d0bfd0bed0bcd0bdd0b8d182d18c20d181d0bed0bbd0bdd0b5d0bdd0b8d0b520d0b1d0b0d0bdd0bad0b020d0bbd0b0d0b420d184d0b8d0bbd18cd0bc\n\nRows only in right (1 total):\n  d0bed182d0b2d0bed0b4d0b020d0b4d0bbd18f20d0bfd0b8d180d0bed0b6d0bad0b820d0bbd0b5d187d0b5d0bdd0bdd18b20d0b2d181d0b520d181d0b5d180d196d197.\nThis issue was likely caused by a bug in DataFusion's code. Please help us to resolve this by filing a bug report in our issue tracker: https://github.com/apache/datafusion/issues"]
+     async fn test_clickbench_24() -> Result<()> {
+         let display = test_clickbench_query("q24").await?;
++        let _guard = runtime_filter_settings().bind_to_scope();
+         assert_snapshot!(display, @r"
+         ┌───── DistributedExec
+         │ ProjectionExec: expr=[SearchPhrase@0 as SearchPhrase]
+@@ -592,13 +638,14 @@ mod tests {
+         │     [Stage 1] => NetworkCoalesceExec: output_partitions=12, input_tasks=4
+         └──────────────────────────────────────────────────
+           ┌───── Stage 1 ── tasks=4, partitions=12
+-          │ SortExec: TopK(fetch=10), expr=[EventTime@1 ASC NULLS LAST], preserve_partitioning=[true]
+-          │   FilterExec: SearchPhrase@1 != , projection=[SearchPhrase@1, EventTime@0]
+-          │     DistributedLeafExec:
+-          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+-          │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+-          │       t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+-          │       t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │ ProjectionExec: expr=[SearchPhrase@1 as SearchPhrase, EventTime@0 as EventTime]
++          │   SortExec: TopK(fetch=10), expr=[EventTime@0 ASC NULLS LAST], preserve_partitioning=[true]
++          │     FilterExec: SearchPhrase@1 !=
++          │       DistributedLeafExec:
++          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ EventTime@4 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND EventTime_null_count@5 != row_count@3 AND EventTime_min@4 < <runtime>, required_guarantees=[SearchPhrase not in ()]
++          │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │         t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │         t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ EventTime@4 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND EventTime_null_count@5 != row_count@3 AND EventTime_min@4 < <runtime>, required_guarantees=[SearchPhrase not in ()]
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -607,7 +654,8 @@ mod tests {
+     #[tokio::test]
+     async fn test_clickbench_25() -> Result<()> {
+         let display = test_clickbench_query("q25").await?;
+-        assert_snapshot!(display, @"
++        let _guard = runtime_filter_settings().bind_to_scope();
++        assert_snapshot!(display, @r"
+         ┌───── DistributedExec
+         │ SortPreservingMergeExec: [SearchPhrase@0 ASC NULLS LAST], fetch=10
+         │   [Stage 1] => NetworkCoalesceExec: output_partitions=12, input_tasks=4
+@@ -616,10 +664,10 @@ mod tests {
+           │ SortExec: TopK(fetch=10), expr=[SearchPhrase@0 ASC NULLS LAST], preserve_partitioning=[true]
+           │   FilterExec: SearchPhrase@0 !=
+           │     DistributedLeafExec:
+-          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ SearchPhrase@39 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND SearchPhrase_null_count@2 != row_count@3 AND SearchPhrase_min@0 < <runtime>, required_guarantees=[SearchPhrase not in ()]
+           │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+           │       t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+-          │       t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │       t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ SearchPhrase@39 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND SearchPhrase_null_count@2 != row_count@3 AND SearchPhrase_min@0 < <runtime>, required_guarantees=[SearchPhrase not in ()]
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -628,7 +676,8 @@ mod tests {
+     #[tokio::test]
+     async fn test_clickbench_26() -> Result<()> {
+         let display = test_clickbench_query("q26").await?;
+-        assert_snapshot!(display, @"
++        let _guard = runtime_filter_settings().bind_to_scope();
++        assert_snapshot!(display, @r"
+         ┌───── DistributedExec
+         │ ProjectionExec: expr=[SearchPhrase@0 as SearchPhrase]
+         │   SortPreservingMergeExec: [EventTime@1 ASC NULLS LAST, SearchPhrase@0 ASC NULLS LAST], fetch=10
+@@ -639,10 +688,10 @@ mod tests {
+           │   SortExec: TopK(fetch=10), expr=[EventTime@0 ASC NULLS LAST, SearchPhrase@1 ASC NULLS LAST], preserve_partitioning=[true]
+           │     FilterExec: SearchPhrase@1 !=
+           │       DistributedLeafExec:
+-          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ EventTime@4 < <runtime> OR EventTime@4 = <runtime> AND SearchPhrase@39 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND (EventTime_null_count@5 != row_count@3 AND EventTime_min@4 < <runtime> OR EventTime_null_count@5 != row_count@3 AND EventTime_min@4 <= <runtime> AND <runtime> <= EventTime_max@6 AND SearchPhrase_null_count@2 != row_count@3 AND SearchPhrase_min@0 < <runtime>), required_guarantees=[SearchPhrase not in ()]
+           │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+           │         t2: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
+-          │         t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ empty ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1), required_guarantees=[SearchPhrase not in ()]
++          │         t3: DataSourceExec: file_groups={3 groups: [[/testdata/clickbench/plans_range0-3/hits/0.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/1.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>, /testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>], [/testdata/clickbench/plans_range0-3/hits/2.parquet:<int>..<int>]]}, projection=[EventTime, SearchPhrase], file_type=parquet, predicate=SearchPhrase@39 !=  AND DynamicFilter [ EventTime@4 < <runtime> OR EventTime@4 = <runtime> AND SearchPhrase@39 < <runtime> ], dynamic_rg_pruning=eligible, pruning_predicate=SearchPhrase_null_count@2 != row_count@3 AND (SearchPhrase_min@0 !=  OR  != SearchPhrase_max@1) AND (EventTime_null_count@5 != row_count@3 AND EventTime_min@4 < <runtime> OR EventTime_null_count@5 != row_count@3 AND EventTime_min@4 <= <runtime> AND <runtime> <= EventTime_max@6 AND SearchPhrase_null_count@2 != row_count@3 AND SearchPhrase_min@0 < <runtime>), required_guarantees=[SearchPhrase not in ()]
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -1097,6 +1146,17 @@ mod tests {
+ 
+     static INIT_TEST_TPCDS_TABLES: OnceCell<()> = OnceCell::const_new();
+ 
++    fn runtime_filter_settings() -> Settings {
++        let mut settings = settings();
++        // TopK cutoffs depend on scan order. Preserve populated versus empty filters.
++        settings.add_filter(
++            r"((?:EventTime|SearchPhrase)(?:_min)?@\d+ (?:<=|<|=) )[0-9A-F]+(?:\.\.\.)?",
++            "${1}<runtime>",
++        );
++        settings.add_filter(r"\b\d+( <= EventTime_max@\d+)", "<runtime>${1}");
++        settings
++    }
++
+     async fn test_clickbench_query(query_id: &str) -> Result<String> {
+         let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+             "testdata/clickbench/plans_range{}-{}",
+@@ -1130,12 +1190,16 @@ mod tests {
+                 FILE_SCAN_CONFIG_BYTES_PER_PARTITION,
+             )?
+             .with_distributed_cardinality_effect_task_scale_factor(CARDINALITY_TASK_COUNT_FACTOR)?
+-            .with_distributed_broadcast_joins(true)?;
++            .with_distributed_broadcast_joins(true)?
++            .with_distributed_dynamic_filter_collection(true)?;
+ 
+         register_tables(&d_ctx, &data_dir).await?;
+ 
+         let df = d_ctx.sql(&query_sql).await?;
+         let plan = df.create_physical_plan().await?;
++        let task_ctx = d_ctx.task_ctx();
++        collect(Arc::clone(&plan), Arc::clone(&task_ctx)).await?;
++        let plan = rewrite_distributed_plan_with_dynamic_filters(plan, &task_ctx).await?;
+ 
+         if !plan.is::<DistributedExec>() {
+             Ok("".to_string())
+diff --git a/tests/dynamic_filtering/aggregates.rs b/tests/dynamic_filtering/aggregates.rs
+index ab77a23..c8c948a 100644
+--- a/tests/dynamic_filtering/aggregates.rs
++++ b/tests/dynamic_filtering/aggregates.rs
+@@ -27,9 +27,10 @@ mod tests {
+           ┌───── Stage 1 ── tasks=2, partitions=6
+           │ AggregateExec: mode=Partial, gby=[], aggr=[min(weather.MinTemp)]
+           │   FilterExec: RainToday@1 = Yes, projection=[MinTemp@0]
+-          │     DistributedLeafExec:
+-          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp, RainToday], file_type=parquet, predicate=RainToday@19 = Yes AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-          │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp, RainToday], file_type=parquet, predicate=RainToday@19 = Yes AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++          │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_1 ]]}
++          │       DistributedLeafExec:
++          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp, RainToday], file_type=parquet, predicate=RainToday@19 = Yes AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp, RainToday], file_type=parquet, predicate=RainToday@19 = Yes AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -66,9 +67,10 @@ mod tests {
+             ┌───── Stage 1 ── tasks=2, partitions=6
+             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=3
+             │   AggregateExec: mode=Partial, gby=[key@0 as key], aggr=[]
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())
+diff --git a/tests/dynamic_filtering/collect_left_join.rs b/tests/dynamic_filtering/collect_left_join.rs
+index 553734f..589f468 100644
+--- a/tests/dynamic_filtering/collect_left_join.rs
++++ b/tests/dynamic_filtering/collect_left_join.rs
+@@ -35,9 +35,10 @@ mod tests {
+           │   HashJoinExec: mode=CollectLeft, join_type=RightSemi, on=[(key@0, RainToday@0)], projection=[]
+           │     CoalescePartitionsExec
+           │       [Stage 2] => NetworkBroadcastExec: partitions_per_consumer=3, stage_partitions=6, input_tasks=2
+-          │     DistributedLeafExec:
+-          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-          │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++          │       DistributedLeafExec:
++          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++          │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+           └──────────────────────────────────────────────────
+             ┌───── Stage 2 ── tasks=2, partitions=12
+             │ BroadcastExec: input_partitions=3, consumer_tasks=2, output_partitions=6
+@@ -108,9 +109,10 @@ mod tests {
+             ┌───── Stage 3 ── tasks=2, partitions=6
+             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=3
+             │   AggregateExec: mode=Partial, gby=[key@0 as key], aggr=[]
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -139,14 +141,16 @@ mod tests {
+           │     CoalescePartitionsExec
+           │       [Stage 2] => NetworkBroadcastExec: partitions_per_consumer=3, stage_partitions=6, input_tasks=2
+           │     DistributedUnionExec: t0:[c0] t1:[c1]
+-          │       DistributedLeafExec:
+-          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │       FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++          │         DistributedLeafExec:
++          │           t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+           │       ProjectionExec: expr=[WindGustDir@0 as key]
+           │         HashJoinExec: mode=CollectLeft, join_type=RightSemi, on=[(key@0, RainToday@1)], projection=[WindGustDir@0]
+           │           CoalescePartitionsExec
+           │             [Stage 4] => NetworkBroadcastExec: partitions_per_consumer=3, stage_partitions=3, input_tasks=2
+-          │           DistributedLeafExec:
+-          │             t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_1 ] AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │           FilterExec: task_variants={t1: [FilterExec: DynamicFilter [ expression_id_1_hash_2 ] AND DynamicFilter [ expression_id_0_hash_3 ]]}
++          │             DistributedLeafExec:
++          │               t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_4 ] AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+           └──────────────────────────────────────────────────
+             ┌───── Stage 2 ── tasks=2, partitions=12
+             │ BroadcastExec: input_partitions=3, consumer_tasks=2, output_partitions=6
+@@ -219,12 +223,14 @@ mod tests {
+           │     CoalescePartitionsExec
+           │       [Stage 1] => NetworkBroadcastExec: partitions_per_consumer=3, stage_partitions=6, input_tasks=1
+           │     DistributedUnionExec: t0:[c0, c2, c4] t1:[c1, c3]
+-          │       DistributedLeafExec:
+-          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │       FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++          │         DistributedLeafExec:
++          │           t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+           │       ProjectionExec: expr=[CAST(-1000 AS Float64) as MinTemp]
+           │         PlaceholderRowExec
+-          │       DistributedLeafExec:
+-          │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │       FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++          │         DistributedLeafExec:
++          │           t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+           │       ProjectionExec: expr=[CAST(-1001 AS Float64) as MinTemp]
+           │         PlaceholderRowExec
+           │       ProjectionExec: expr=[CAST(-1002 AS Float64) as MinTemp]
+diff --git a/tests/dynamic_filtering/common.rs b/tests/dynamic_filtering/common.rs
+index 86d29c1..24dbfd7 100644
+--- a/tests/dynamic_filtering/common.rs
++++ b/tests/dynamic_filtering/common.rs
+@@ -54,6 +54,8 @@ pub(crate) struct TestQuery<'a> {
+     collect_dynamic_filters: bool,
+     expect_dynamic_filter_updates: bool,
+     normalized_filter_hashes: bool,
++    parquet_pushdown: bool,
++    label_dynamic_filters: bool,
+ }
+ 
+ impl<'a> TestQuery<'a> {
+@@ -67,6 +69,8 @@ impl<'a> TestQuery<'a> {
+             collect_dynamic_filters: true,
+             expect_dynamic_filter_updates: false,
+             normalized_filter_hashes: false,
++            parquet_pushdown: false,
++            label_dynamic_filters: true,
+         }
+     }
+ 
+@@ -105,6 +109,16 @@ impl<'a> TestQuery<'a> {
+         self
+     }
+ 
++    pub(crate) fn with_parquet_pushdown(mut self, enabled: bool) -> Self {
++        self.parquet_pushdown = enabled;
++        self
++    }
++
++    pub(crate) fn without_dynamic_filter_labels(mut self) -> Self {
++        self.label_dynamic_filters = false;
++        self
++    }
++
+     /// Adds a normalized hash to the dynamic filter display formatter. See
+     /// [`DynamicFilterLabels`] below.
+     pub(crate) fn with_normalized_filter_hashes(mut self) -> Self {
+@@ -124,6 +138,12 @@ impl<'a> TestQuery<'a> {
+         {
+             let state = ctx.state_ref();
+             let mut state = state.write();
++            state
++                .config_mut()
++                .options_mut()
++                .execution
++                .parquet
++                .pushdown_filters = self.parquet_pushdown;
+             let optimizer = &mut state.config_mut().options_mut().optimizer;
+             if !self.broadcast_joins {
+                 // Force partitioned hash joins.
+@@ -139,6 +159,7 @@ impl<'a> TestQuery<'a> {
+             self.collect_dynamic_filters,
+             self.expect_dynamic_filter_updates,
+             self.normalized_filter_hashes,
++            self.label_dynamic_filters,
+         )
+         .await
+     }
+@@ -170,7 +191,7 @@ pub(crate) async fn execute_range_partitioned_query(
+     register_range_partitioned_table(&ctx, "dim", "testdata/join/parquet/dim", "d_dkey").await?;
+     register_range_partitioned_table(&ctx, "fact", "testdata/join/parquet/fact", "f_dkey").await?;
+ 
+-    execute_query_and_display(&ctx, sql, expected_rows, true, false, false).await
++    execute_query_and_display(&ctx, sql, expected_rows, true, false, false, true).await
+ }
+ 
+ async fn register_range_partitioned_table(
+@@ -204,6 +225,7 @@ async fn execute_query_and_display(
+     collect_dynamic_filters: bool,
+     expect_dynamic_filter_updates: bool,
+     normalized_filter_hashes: bool,
++    label_dynamic_filters: bool,
+ ) -> Result<String> {
+     set_dynamic_filter_pushdown(ctx, true)?;
+     let plan = ctx.sql(sql).await?.create_physical_plan().await?;
+@@ -248,6 +270,12 @@ async fn execute_query_and_display(
+             "expected dynamic_filter_updates_received > 0, got {updates}"
+         );
+     }
++    if !label_dynamic_filters {
++        return Ok(display_plan_ascii(
++            plan_with_dynamic_filters.as_ref(),
++            false,
++        ));
++    }
+     DynamicFilterLabels {
+         normalized_predicates: normalized_filter_hashes.then(Vec::new),
+         ..Default::default()
+diff --git a/tests/dynamic_filtering/partitioned_join.rs b/tests/dynamic_filtering/partitioned_join.rs
+index 022a046..7820123 100644
+--- a/tests/dynamic_filtering/partitioned_join.rs
++++ b/tests/dynamic_filtering/partitioned_join.rs
+@@ -4,6 +4,37 @@ mod tests {
+     use datafusion::common::Result;
+     use datafusion_distributed::assert_snapshot;
+     use datafusion_distributed::test_utils::insta::insta::allow_duplicates;
++    use test_case::test_case;
++
++    /// The merged predicate routes directly to a task's global shuffle partition.
++    /// RainToday also exercises tasks with empty/single-nonempty local partitions.
++    #[test_case("RainToday", false; "empty_partitions")]
++    #[test_case("WindGustDir", false; "flatten_local_cases")]
++    #[test_case("WindGustDir", true; "parquet_pushdown")]
++    #[tokio::test]
++    async fn global_hash_filter(column: &str, pushdown: bool) -> Result<()> {
++        let sql = format!(
++            r#"
++            SELECT COUNT(*) FROM (
++                SELECT DISTINCT "{column}" AS key FROM weather
++            ) build
++            JOIN weather probe ON build.key = probe."{column}"
++        "#
++        );
++        let display = TestQuery::new(&sql)
++            .with_parquet_pushdown(pushdown)
++            .without_dynamic_filter_labels()
++            .expect_dynamic_filter_updates()
++            .execute()
++            .await?;
++        assert!(
++            display.contains("CASE hash_repartition % 6 WHEN 0"),
++            "{display}"
++        );
++        assert!(display.contains("WHEN 5 THEN"), "{display}");
++        assert!(!display.contains("CASE hash_repartition % 3"), "{display}");
++        Ok(())
++    }
+ 
+     /// A Partitioned HashJoinExec propagates dynamic filters to local consumers.
+     #[tokio::test]
+@@ -51,9 +82,10 @@ mod tests {
+             │         DistributedLeafExec:
+             │           t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/dim/d_dkey=A/data0.parquet], [/testdata/join/parquet/dim/d_dkey=C/data0.parquet]]}, projection=[env, service, d_dkey], output_partitioning=Range([d_dkey@2 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=service@1 = log, pruning_predicate=service_null_count@2 != row_count@3 AND service_min@0 <= log AND log <= service_max@1, required_guarantees=[service in (log)]
+             │           t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/dim/d_dkey=B/data0.parquet], [/testdata/join/parquet/dim/d_dkey=D/data0.parquet]]}, projection=[env, service, d_dkey], output_partitioning=Range([d_dkey@2 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=service@1 = log, pruning_predicate=service_null_count@2 != row_count@3 AND service_min@0 <= log AND log <= service_max@1, required_guarantees=[service in (log)]
+-            │       DistributedLeafExec:
+-            │         t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=A/data0.parquet], [/testdata/join/parquet/fact/f_dkey=C/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │         t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=B/data0.parquet], [/testdata/join/parquet/fact/f_dkey=D/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++            │       FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_1 ]]}
++            │         DistributedLeafExec:
++            │           t0: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=A/data0.parquet], [/testdata/join/parquet/fact/f_dkey=C/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2 ], dynamic_rg_pruning=eligible
++            │           t1: DataSourceExec: file_groups={2 groups: [[/testdata/join/parquet/fact/f_dkey=B/data0.parquet], [/testdata/join/parquet/fact/f_dkey=D/data0.parquet]]}, projection=[f_dkey], output_partitioning=Range([f_dkey@0 ASC NULLS LAST], [(C)], 2), file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_3 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         }
+@@ -89,9 +121,10 @@ mod tests {
+             └──────────────────────────────────────────────────
+             ┌───── Stage 2 ── tasks=2, partitions=6
+             │ RepartitionExec: partitioning=Hash([RainToday@0], 6), input_partitions=3
+-            │   DistributedLeafExec:
+-            │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │     DistributedLeafExec:
++            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -128,9 +161,10 @@ mod tests {
+             ┌───── Stage 2 ── tasks=2, partitions=3
+             │ RepartitionExec: partitioning=Hash([RainToday@0], 3), input_partitions=3
+             │   SamplerExec: partitions=3
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -188,12 +222,15 @@ mod tests {
+             ┌───── Stage 2 ── tasks=2, partitions=6
+             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=6
+             │   DistributedUnionExec: t0:[c0, c2] t1:[c1]
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ], dynamic_rg_pruning=eligible
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1_normalized_hash_0 ], dynamic_rg_pruning=eligible
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindDir9am@7 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2_normalized_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[RainToday@19 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1_normalized_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_2_normalized_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0_normalized_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindDir9am@7 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_3_normalized_hash_0 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -261,9 +298,10 @@ mod tests {
+               └──────────────────────────────────────────────────
+               ┌───── Stage 3 ── tasks=2, partitions=6
+               │ RepartitionExec: partitioning=Hash([WindGustDir@0], 6), input_partitions=3
+-              │   DistributedLeafExec:
+-              │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-              │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++              │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++              │     DistributedLeafExec:
++              │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++              │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+               └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -303,8 +341,9 @@ mod tests {
+             ┌───── Stage 4 ── tasks=2, partitions=6
+             │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=3
+             │   DistributedUnionExec: t0:[c0] t1:[c1]
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir@5 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+             │     ProjectionExec: expr=[WindGustDir@0 as key]
+             │       HashJoinExec: mode=Partitioned, join_type=RightSemi, on=[(key@0, RainToday@1)], projection=[WindGustDir@0]
+             │         AggregateExec: mode=FinalPartitioned, gby=[key@0 as key], aggr=[]
+@@ -320,9 +359,10 @@ mod tests {
+               └──────────────────────────────────────────────────
+               ┌───── Stage 3 ── tasks=2, partitions=3
+               │ RepartitionExec: partitioning=Hash([RainToday@1], 3), input_partitions=3
+-              │   DistributedLeafExec:
+-              │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_1 ] AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-              │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_1 ] AND DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++              │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_1_hash_2 ] AND DynamicFilter [ expression_id_0_hash_3 ]], t1: [FilterExec: DynamicFilter [ expression_id_1_hash_2 ] AND DynamicFilter [ expression_id_0_hash_3 ]]}
++              │     DistributedLeafExec:
++              │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_4 ] AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++              │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[WindGustDir, RainToday], file_type=parquet, predicate=DynamicFilter [ expression_id_1_hash_4 ] AND DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+               └──────────────────────────────────────────────────
+         ");
+         Ok(())
+diff --git a/tests/dynamic_filtering/sorts.rs b/tests/dynamic_filtering/sorts.rs
+index 2974037..92db488 100644
+--- a/tests/dynamic_filtering/sorts.rs
++++ b/tests/dynamic_filtering/sorts.rs
+@@ -27,9 +27,10 @@ mod tests {
+         └──────────────────────────────────────────────────
+           ┌───── Stage 1 ── tasks=2, partitions=6
+           │ SortExec: TopK(fetch=10), expr=[MinTemp@0 DESC], preserve_partitioning=[true]
+-          │   DistributedLeafExec:
+-          │     t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-          │     t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
++          │   FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_1 ]]}
++          │     DistributedLeafExec:
++          │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++          │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_1 ], dynamic_rg_pruning=eligible
+           └──────────────────────────────────────────────────
+         ");
+         Ok(())
+@@ -40,12 +41,12 @@ mod tests {
+     async fn remote_dynamic_filters() -> Result<()> {
+         let display = TestQuery::new(
+             r#"
+-                SELECT key
++                SELECT "MinTemp"
+                 FROM (
+-                    SELECT DISTINCT "MinTemp" AS key
++                    SELECT DISTINCT "MinTemp"
+                     FROM weather
+                 )
+-                ORDER BY key DESC
++                ORDER BY "MinTemp" DESC
+                 LIMIT 10
+             "#,
+         )
+@@ -57,20 +58,21 @@ mod tests {
+         // The per-task TopK filters in stage 2 are merged into one and passed to both consumers.
+         assert_snapshot!(display, @"
+         ┌───── DistributedExec
+-        │ SortPreservingMergeExec: [key@0 DESC], fetch=10
++        │ SortPreservingMergeExec: [MinTemp@0 DESC], fetch=10
+         │   [Stage 2] => NetworkCoalesceExec: output_partitions=6, input_tasks=2
+         └──────────────────────────────────────────────────
+           ┌───── Stage 2 ── tasks=2, partitions=3
+-          │ SortExec: TopK(fetch=10), expr=[key@0 DESC], preserve_partitioning=[true]
+-          │   AggregateExec: mode=FinalPartitioned, gby=[key@0 as key], aggr=[], lim=[10]
++          │ SortExec: TopK(fetch=10), expr=[MinTemp@0 DESC], preserve_partitioning=[true]
++          │   AggregateExec: mode=FinalPartitioned, gby=[MinTemp@0 as MinTemp], aggr=[], lim=[10]
+           │     [Stage 1] => NetworkShuffleExec: output_partitions=3, input_tasks=2
+           └──────────────────────────────────────────────────
+             ┌───── Stage 1 ── tasks=2, partitions=6
+-            │ RepartitionExec: partitioning=Hash([key@0], 6), input_partitions=3
+-            │   AggregateExec: mode=Partial, gby=[key@0 as key], aggr=[], lim=[10]
+-            │     DistributedLeafExec:
+-            │       t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+-            │       t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp@0 as key], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │ RepartitionExec: partitioning=Hash([MinTemp@0], 6), input_partitions=3
++            │   AggregateExec: mode=Partial, gby=[MinTemp@0 as MinTemp], aggr=[], lim=[10]
++            │     FilterExec: task_variants={t0: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]], t1: [FilterExec: DynamicFilter [ expression_id_0_hash_0 ]]}
++            │       DistributedLeafExec:
++            │         t0: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000000.parquet:<int>..<int>, /testdata/weather/result-000001.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
++            │         t1: DataSourceExec: file_groups={3 groups: [[/testdata/weather/result-000000.parquet:<int>..<int>], [/testdata/weather/result-000001.parquet:<int>..<int>, /testdata/weather/result-000002.parquet:<int>..<int>], [/testdata/weather/result-000002.parquet:<int>..<int>]]}, projection=[MinTemp], file_type=parquet, predicate=DynamicFilter [ expression_id_0_hash_0 ], dynamic_rg_pruning=eligible
+             └──────────────────────────────────────────────────
+         ");
+         Ok(())

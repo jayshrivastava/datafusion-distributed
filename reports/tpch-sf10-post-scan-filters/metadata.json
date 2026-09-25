@@ -1,0 +1,107 @@
+{
+  "created": "2026-09-24T15:25:07.166Z",
+  "repo": "/home/bits/datafusion-distributed",
+  "branch": "js/6-apply-merged-filters",
+  "commit": "c0e9548765d419503e0decc7ea9faa0bf7c48403",
+  "data": "/instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10",
+  "tables": [
+    {
+      "name": "customer",
+      "parquet_files": 16,
+      "bytes": 255612007
+    },
+    {
+      "name": "lineitem",
+      "parquet_files": 16,
+      "bytes": 3811401291
+    },
+    {
+      "name": "nation",
+      "parquet_files": 1,
+      "bytes": 4048
+    },
+    {
+      "name": "orders",
+      "parquet_files": 16,
+      "bytes": 1221904632
+    },
+    {
+      "name": "part",
+      "parquet_files": 16,
+      "bytes": 140532349
+    },
+    {
+      "name": "partsupp",
+      "parquet_files": 16,
+      "bytes": 1126318656
+    },
+    {
+      "name": "region",
+      "parquet_files": 1,
+      "bytes": 1631
+    },
+    {
+      "name": "supplier",
+      "parquet_files": 16,
+      "bytes": 16320521
+    }
+  ],
+  "workers": 4,
+  "worker_threads": 4,
+  "target_partitions": 4,
+  "coordinator_threads": 2,
+  "queries": [
+    "q17",
+    "q18",
+    "q20",
+    "q15"
+  ],
+  "measured_iterations": 10,
+  "warmup_iterations": 1,
+  "metrics_collection": true,
+  "dynamic_filter_collection": true,
+  "parquet_pruning": true,
+  "dynamic_task_count": false,
+  "broadcast_joins": true,
+  "compression": "lz4",
+  "cpu": "Neoverse-N1",
+  "logical_cpus": 16,
+  "total_memory_bytes": 65934987264,
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "generation_command": "target/release/dfbench prepare-tpch --output /instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10 --scale-factor 10 --partitions 16",
+  "build_command": "cargo build -p datafusion-distributed-benchmarks --bin tpch-filter-matrix --release --locked",
+  "runner_sha256": "5a8961626af2d752a200d76413dc196dacd10b1c7c719d44d6567ed656e78184",
+  "binary_sha256": "932967a04847b6a24fede4e294e9da667d38bcb4c908f9dc507f8696238367a3",
+  "uncommitted": true,
+  "baseline": "../tpch-sf10-local-filter-matrix",
+  "experiment": "Per-task intermediate FilterExec display and post-scan dynamic-filter fallback",
+  "command": "/home/bits/datafusion-distributed-dev-tools/.data/tpch-sf10-post-scan-filters/post-scan-runner --data /instance_storage/bits_cache/datafusion-benchmark-data/tpch/sf10 --output /home/bits/datafusion-distributed-dev-tools/.data/tpch-sf10-post-scan-filters --iterations 10",
+  "finished": "2026-09-24T15:30:51.063Z",
+  "validation": {
+    "total_samples": 132,
+    "measured_samples": 120,
+    "result_equality_with_previous_all_off": true,
+    "all_plans_have_metrics": true,
+    "q15_intermediate_predicate_visible": true,
+    "remote_channels_per_query": {
+      "q17": [
+        15
+      ],
+      "q18": [
+        24
+      ],
+      "q20": [
+        24
+      ],
+      "q15": [
+        18
+      ]
+    },
+    "dynamic_filtering_integration_tests": "20 passed; five additional successful repeat runs before final display-only map simplification",
+    "discovery_and_display_tests": "4 passed",
+    "clippy": "library, dynamic-filter integration target, and matrix runner passed with -D warnings",
+    "format": "passed",
+    "diff_check": "passed",
+    "workers_stopped": true
+  }
+}
