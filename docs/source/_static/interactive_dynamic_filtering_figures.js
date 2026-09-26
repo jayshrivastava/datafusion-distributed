@@ -12,6 +12,7 @@
     "remote-collect-left-join.svg",
     "remote-min-aggregate.svg",
     "remote-topk-sort.svg",
+    "remote-scan-read-pipeline.svg",
   ]);
   const figureDimensions = new Map([
     ["single-node-dynamic-filter.svg", [960, 390]],
@@ -20,6 +21,7 @@
     ["remote-collect-left-join.svg", [960, 620]],
     ["remote-min-aggregate.svg", [960, 750]],
     ["remote-topk-sort.svg", [960, 750]],
+    ["remote-scan-read-pipeline.svg", [960, 660]],
   ]);
 
   function enhanceFigure(image) {

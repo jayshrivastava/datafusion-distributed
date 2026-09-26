@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under the Apache License, Version 2.0. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
-  <title id="title">Remote TPC-DS speedup by dynamic filtering and Parquet configuration</title>
-  <desc id="desc">Grouped bar chart for ten TPC-DS queries run remotely. Each query has four bars: control with Parquet options off, control with Parquet options on, dynamic filtering with Parquet options off, and dynamic filtering with Parquet options on. Speedups are normalized to control with Parquet options off.</desc>
+  <title id="title">Distributed TPC-DS speedup by dynamic filtering and Parquet configuration</title>
+  <desc id="desc">Grouped bar chart for ten TPC-DS queries run on twelve nodes. Each query has four bars: control with Parquet options off, control with Parquet options on, dynamic filtering with Parquet options off, and dynamic filtering with Parquet options on. Speedups are normalized to control with Parquet options off.</desc>
   <style>
     .chart{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
     .axis{stroke:#667085;stroke-width:1.5}.grid{stroke:#d8dee7;stroke-width:1}.baseline{stroke:#8895a7;stroke-width:1.5;stroke-dasharray:6 5}

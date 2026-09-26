@@ -1,14 +1,14 @@
 ---
 layout: post
-title: "Optimizing Distributed Joins with Dynamic Filtering"
+title: "Optimizing Distributed Joins, Sorts, and Aggregates with Dynamic Filtering"
 date: 2026-09-20
-author: "@jayshrivastava"
+author: "Jayant Shrivastava (@jayshrivastava)"
 categories: [features]
 ---
 
-# Optimizing Distributed Joins with Dynamic Filtering
+# Optimizing Distributed Joins, Sorts, and Aggregates with Dynamic Filtering
 
-*September 20, 2026 · [@jayshrivastava]*
+*September 20, 2026 · Jayant Shrivastava ([@jayshrivastava])*
 
 ```{contents}
 :local:
@@ -17,7 +17,7 @@ categories: [features]
 
 ## Background and Motivation
 
-Single-node DataFusion implements an optimization called [dynamic filtering](https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/),
+DataFusion implements an optimization called [dynamic filtering](https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/)
 which applies filters discovered during execution, but its shared-memory
 mechanism **does not automatically work** when producers and consumers run in
 a distributed environment.
@@ -127,14 +127,14 @@ In the sections below, we will discuss how filters are collected and safetly mer
   │   HashJoinExec producers=[1]
   │     DataSourceExec
   │     AggregateExec
-  │       [Stage 2] NetworkShuffleExec anchors=[1]
+  │       [Stage 2] NetworkShuffleExec
   └──────────────────────────────────────────────
     ┌───── Stage 2 ── tasks=4
     │ RepartitionExec
     │   HashJoinExec producers=[2]
     │     DataSourceExec
     │     AggregateExec
-    │       NetworkShuffleExec anchors=[2]
+    │       NetworkShuffleExec
     └──────────────────────────────────────────────
       ┌───── Stage 1  ── tasks=8
       │ RepartitionExec
@@ -274,14 +274,14 @@ A distributed TopK sort operation is compsed of a partitioned, distributed sort
 where each `SortExec` retains its best `K` candidates. This is followed by a sort preserving merge
 to get the global TopK values.
 
-In single node datafusion, each sort pushes down a dynamic filter to eliminate rows
-which will not enter it's local top `K`. In distributed datafusion, we effectively
+When the sort and scan are colocated, each sort pushes down a dynamic filter to
+eliminate rows that cannot enter its per-task top `K`. With remote filters, we
 select the best `K` to push down. In Figure 6, the query computes the top 3 values.
 Each `SortExec` passes its bound to the coorindator and the coorindator chooses the
 tighest bound to push down.
 
 ```{figure} ../_static/images/dynamic-filtering/remote-topk-sort.svg
-:alt: Two local TopK sorts send sorted candidates through a SortPreservingMerge while reporting increasingly strict bounds, which the coordinator intersects with AND and sends to remote scans.
+:alt: Two per-task TopK sorts send sorted candidates through a SortPreservingMerge while reporting increasingly strict bounds, which the coordinator intersects with AND and sends to remote scans.
 :width: 100%
 
 Figure 6
@@ -290,8 +290,8 @@ Figure 6
 ### 3. Broadcasting Merged Filters to Consumers
 
 Once a merged predicate is ready to be sent, the coordinator sends the filter
-to each worker containing a filter that needs to be consumed. This workers
-apply the filters during execution to their local plans.
+to each worker containing a matching consumer. Each worker applies the filter
+to its physical plan during execution.
 
 Consumers do not necessarily wait for remote filters. With sorts and aggregates,
 the scan often starts before the filter arrives. With joins, the probe side
@@ -330,8 +330,8 @@ but the underlying plans and expressions follow standard DataFusion practices.
 ## Benchmarks
 
 We benchmarked dynamic filtering on TPC-DS at `scale_factor=10` in both a
-local scenario (in-memory workers on a single machine) and remote scenario on
-multiple machines using the [remote benchmark dev tools](https://github.com/gabotechs/datafusion-distributed-dev-tools/tree/main/benchmarks-remote).
+local benchmark (in-memory workers on one machine) and a distributed benchmark
+on multiple machines using the [distributed benchmark dev tools](https://github.com/gabotechs/datafusion-distributed-dev-tools/tree/main/benchmarks-remote).
 
 ### Local Benchmark Results
 
@@ -344,6 +344,15 @@ on local data with 4 in-memory workers configured with `datafusion.execution.tar
 
 The average speedup across the full TPC-DS suite was `1.05x` with
 `parquet=off` and `1.20x` with `parquet=on`.
+
+This does not mean `parquet=on` enables file-level pruning: statistics and
+page-index pruning remain enabled in both configurations. Instead, it lets the
+Parquet reader apply the dynamic predicate while decoding rows. The larger gain
+shows that dynamic filters become more useful when the scan can act on them at
+more levels—files and row groups through statistics, and rows through late
+materialization. The [upstream DataFusion dynamic-filtering results](https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/)
+showed the same compounding effect: ClickBench Q23 improved by up to **22x**
+when dynamic filters and late materialization were enabled together.
 
 ```{figure} ../_static/images/dynamic-filtering/local-tpcds-speedup.svg
 :alt: Grouped bar chart comparing local TPC-DS query speedups with dynamic filtering off and on, each with Parquet row-filter pushdown and filter reordering off and on.
@@ -372,8 +381,8 @@ showing why scan-level filtering matters in a distributed plan: the
 rejected rows never entered the intervening joins or shuffles.
 
 [Q37](https://github.com/datafusion-contrib/datafusion-distributed/blob/a43ea4703f9d1ef668abd8f5e6865e05814ed549/testdata/tpcds/queries/q37.sql?plain=1#L1)
-combines task-local and remote filter propagation. A partitioned LeftSemi join
-sends an item-key filter across a shuffle to `catalog_sales`, while a task-local
+combines colocated and remote dynamic filters. A partitioned LeftSemi join
+sends an item-key filter across a shuffle to `catalog_sales`, while a colocated
 date filter is applied to `inventory`.
 
 | Metric (parquet=on) | Dynamic filters off | Dynamic filters on |
@@ -386,16 +395,16 @@ date filter is applied to `inventory`.
 | Coordinator Dynamic Filter Updates Received | 0 | **10.8** |
 
 A remote dynamic filter reduces `catalog_sales` from 14.40 million to 4.05
-million rows, and a task-local date filter also reduces `inventory` from 50.66
+million rows, and a colocated date filter also reduces `inventory` from 50.66
 million rows to 74, a **93.8% reduction**.
 
 ### Distributed Benchmark Results
 
-Figure 8 shows the remote results for the same 10 queries above. These were run on 12
+Figure 8 shows the distributed results for the same 10 queries above. These were run on 12
 `c5n.4xlarge` instances with 15 cores and `target_partitions` each using data on `S3`.
 
 ```{figure} ../_static/images/dynamic-filtering/remote-tpcds-speedup.svg
-:alt: Grouped bar chart comparing remote TPC-DS query speedups with dynamic filtering off and on, each with Parquet row-filter pushdown and filter reordering off and on.
+:alt: Grouped bar chart comparing distributed TPC-DS query speedups with dynamic filtering off and on, each with Parquet row-filter pushdown and filter reordering off and on.
 :width: 100%
 
 **Figure 8**
@@ -403,52 +412,55 @@ Figure 8 shows the remote results for the same 10 queries above. These were run 
 
 Only five queries reproduced a performance gain (in any `parquet` configuration).
 
+We investigated Q80 with 20 instrumented runs per setting. Only dynamic
+filtering changed. The filters arrived and worked, but pushing them into the
+critical S3 scan changed both the read and shuffle pipelines.
+
 [Q80](https://github.com/datafusion-contrib/datafusion-distributed/blob/a43ea4703f9d1ef668abd8f5e6865e05814ed549/testdata/tpcds/queries/q80.sql?plain=1#L3)
-shows that effective filtering does not guarantee a remote speedup.
+is the cleanest demonstration that this is an I/O and streaming effect, not
+simply expensive predicate evaluation.
 
-| Metric (`parquet=on`) | Local DF off | Local DF on | Remote DF off | Remote DF on |
-|---|---:|---:|---:|---:|
-| Latency | 1,742 ms | **640 ms** | **1,307 ms** | 1,377 ms |
-| Cumulative task instances | 55 | 55 | 106 | 106 |
-| Scan output rows | 55.47 M | **6.23 M** | 55.47 M | **6.14 M** |
-| Bytes read | 2.14 GB | **1.63 GB** | 2.14 GB | **1.63 GB** |
-| Join input rows | 108.19 M | **9.68 M** | 108.41 M | **9.73 M** |
-| Network transfer | 1.02 GB | **88.1 MB** | 1.35 GB | **128 MB** |
-| Predicate evaluation, summed | 1.2 ms | 484 ms | 1.6 ms | 430 ms |
-| Join compute, summed | 4,122 ms | **609 ms** | 5,154 ms | **1,378 ms** |
-| Remote filter updates | 0 | 80.3 | 0 | 214.6 |
+| Q80 metric, mean across 20 runs | Dynamic filters off | Dynamic filters on |
+|---|---:|---:|
+| Execution speedup | 1.00x | **0.855x** |
+| First-result latency | 803 ms | **943 ms** |
+| Critical `store_sales` output | 28.800 M rows | **0.592 M rows** |
+| Decoder data requested | 1.058 GB | **1.058 GB** |
+| Decoder reads per output stream | 1 | **5** |
+| Data-read await time, summed | 4.782 s | **9.023 s** |
+| Mean file-stream first-batch delay | 151 ms | **339 ms** |
+| Critical fact-stage finish | 771 ms | **906 ms** |
+| Total network transfer | 1.353 GB | **128 MB** |
+| Critical scan-poll CPU, summed | 2.801 s | **2.432 s** |
 
-Remotely, Q80 removes 89% of scan output, 91% of network transfer, and 24% of
-bytes read, yet finishes about 5% slower; locally, it improves 2.72x. The
-remote plan has 106 cumulative task instances instead of 55 and receives 215
-filter updates instead of 80, increasing coordination and repeated predicate
-work around slower S3 reads.
+Q80 removes 97.9% of critical scan rows and 91% of network traffic, yet execution
+increases from 839 to 982 ms. Scan CPU falls 13%, ruling out expensive predicate
+evaluation as the cause. Instead, the critical stage finishes 136 ms later,
+matching the 140 ms increase in first-result latency. I/O savings on
+`catalog_sales` occur on an earlier, non-critical branch.
 
-[Q27](https://github.com/datafusion-contrib/datafusion-distributed/blob/a43ea4703f9d1ef668abd8f5e6865e05814ed549/testdata/tpcds/queries/q27.sql?plain=1#L1)
-emits 93% fewer scan rows and transfers 91% fewer bytes with dynamic filtering,
-but still reads 4.57 GB.
+```{figure} ../_static/images/dynamic-filtering/remote-scan-read-pipeline.svg
+:alt: Four timelines compare dynamic filtering off and on in both the local and distributed benchmarks. Progressive reads are cheap against warm local storage, while every dependent S3 read adds I/O latency and sparse shuffle output waits for end-of-stream.
+:width: 100%
 
-| Metric | Local DF off | Local DF on | Remote DF off | Remote DF on |
-|---|---:|---:|---:|---:|
-| Latency | 2,438 ms | **1,012 ms** | **2,180 ms** | 2,393 ms |
-| Cumulative task instances | 40 | 40 | 96 | 96 |
-| Scan output rows | 86.79 M | **5.76 M** | 86.79 M | **5.70 M** |
-| Bytes read | 4.56 GB | 4.57 GB | 4.56 GB | 4.57 GB |
-| Network transfer | 1.21 GB | **80.8 MB** | 1.52 GB | **140 MB** |
-| Predicate evaluation, summed | 25 ms | 1,178 ms | 40 ms | **4,851 ms** |
-| Join compute, summed | 1,024 ms | **103 ms** | 959 ms | **392 ms** |
-| Remote filter updates | 0 | 87.9 | 0 | 262.7 |
+**Figure 9**
+```
 
-Its 19-stage plan creates 96 cumulative task instances across 12 workers,
-compared with 40 locally, and receives 263 filter updates, compared with 88
-locally. Summed predicate-evaluation time rises from 1.18 to 4.85 seconds,
-turning a 2.41x local gain into a 9% remote regression.
+Figure 9 compares filtering off and on in each environment. DataFusion's Parquet
+data source changes from one combined read to a series of dependent reads when
+it evaluates pushed-down filters. That I/O-pattern change is cheap against warm
+local storage, so avoiding join and shuffle work produces a **2.72x** speedup.
+Against S3, every dependent read adds I/O latency. The filter prunes no pages or
+row groups, so the scan requests the same bytes, and sparse output also delays
+shuffle batches until end-of-stream. The result is a **0.855x** speedup.
 
-Together, Q80 and Q27 show why the remote results are weaker: filter
-propagation still removes downstream work, but greater task fanout and update
-traffic increase coordination and predicate cost. When filtering does not
-avoid enough S3 reads, those costs can outweigh the saved join and network
-work.
+This regression is a byproduct of the current DataFusion Parquet data source,
+not an inherent cost of remote dynamic filtering. Internal execution nodes or
+file formats that apply a dynamic predicate without changing their read pattern
+avoid this specific penalty. [DataFusion issue #24393](https://github.com/apache/datafusion/issues/24393)
+tracks separating predicate evaluation from the choice between one-shot and
+progressive reads. Summed await times overlap and are not additive wall-time;
+the critical-stage finish and first-result latency show the end-to-end effect.
 
 ## Conclusion
 
@@ -456,7 +468,7 @@ Distributed dynamic filtering is implemented with DataFusion's native physical
 plan and expression APIs. Producers expose dynamic expressions through
 `ExecutionPlan`, stable expression IDs preserve their relationships across
 serialization and stage boundaries, and consumers continue to use DataFusion's
-existing scan pushdown and pruning machinery. Task-local filters retain the
+existing scan pushdown and pruning machinery. Colocated filters retain the
 shared-memory path, while the coordinator merges and forwards only the updates
 that cross processes. The mechanism remains fail-open: it can eliminate work,
 but it cannot change a query result.
