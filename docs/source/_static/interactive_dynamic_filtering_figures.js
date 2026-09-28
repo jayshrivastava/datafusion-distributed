@@ -13,6 +13,7 @@
     "remote-min-aggregate.svg",
     "remote-topk-sort.svg",
     "remote-scan-read-pipeline.svg",
+    "q80-s3-read-phases.svg",
   ]);
   const figureDimensions = new Map([
     ["single-node-dynamic-filter.svg", [960, 390]],
@@ -22,6 +23,7 @@
     ["remote-min-aggregate.svg", [960, 750]],
     ["remote-topk-sort.svg", [960, 750]],
     ["remote-scan-read-pipeline.svg", [960, 660]],
+    ["q80-s3-read-phases.svg", [960, 400]],
   ]);
 
   function enhanceFigure(image) {
@@ -69,6 +71,13 @@
       }
       paused = !paused;
       svgRoot.classList.toggle("animation-paused", paused);
+      svgRoot.ownerDocument.getAnimations().forEach((animation) => {
+        if (paused) {
+          animation.pause();
+        } else {
+          animation.play();
+        }
+      });
       object.setAttribute("aria-pressed", String(paused));
       object.title = paused
         ? "Click to resume animation"

@@ -202,6 +202,88 @@ style: |
     border-color: #ef9a8d;
     color: var(--df-red);
   }
+  .join-sketch {
+    display: block;
+    margin: 4px auto 0;
+    max-width: 330px;
+    width: 100%;
+  }
+  section[data-class~="runtime-overview"] {
+    padding: 42px 58px 44px;
+  }
+  section[data-class~="runtime-overview"] h1 {
+    margin: 0 0 22px;
+  }
+  .runtime-cards {
+    display: grid;
+    gap: 28px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .runtime-card {
+    background: #fbfafd;
+    border: 1px solid #d9cfea;
+    border-radius: 16px;
+    padding: 18px 24px 20px;
+    text-align: center;
+  }
+  .runtime-card h2 {
+    color: var(--df-blue);
+    font-size: 28px;
+    margin: 0;
+  }
+  .runtime-card svg {
+    display: block;
+    height: 270px;
+    margin: 2px auto 0;
+    max-width: 100%;
+  }
+  .runtime-card p {
+    color: var(--df-muted);
+    font-size: 18px;
+    line-height: 1.3;
+    margin: -6px 0 0;
+  }
+  section[data-class~="challenge-overview"] {
+    padding: 38px 54px 42px;
+  }
+  section[data-class~="challenge-overview"] h1 {
+    margin: 0 0 18px;
+  }
+  .challenge-cards {
+    display: grid;
+    gap: 26px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .challenge-card {
+    background: #fbfafd;
+    border: 1px solid #d9cfea;
+    border-radius: 16px;
+    padding: 16px 20px 14px;
+    text-align: center;
+  }
+  .challenge-card h2 {
+    color: var(--df-blue);
+    font-size: 27px;
+    margin: 0;
+  }
+  .challenge-card svg {
+    display: block;
+    height: 260px;
+    margin: 0 auto;
+    max-width: 100%;
+  }
+  .challenge-card p {
+    color: var(--df-muted);
+    font-size: 18px;
+    line-height: 1.25;
+    margin: -2px 0 0;
+  }
+  section[data-class~="challenge-overview"] .callout {
+    font-size: 20px;
+    margin-top: 16px;
+    padding: 10px 16px;
+    text-align: center;
+  }
   section[data-class~="figure"] h1 {
     font-size: 36px;
     margin: 0 0 8px;
@@ -220,17 +302,32 @@ style: |
   section[data-class~="figure-tall"] img {
     max-height: 520px;
   }
-  section:is([id="9"], [id="11"], [id="12"], [id="13"]) {
+  section[data-class~="figure-detail"] {
     padding: 22px 36px 28px;
   }
-  section:is([id="9"], [id="11"], [id="12"], [id="13"]) h1 {
+  section[data-class~="figure-detail"] h1 {
     margin-bottom: 4px;
   }
-  section:is([id="9"], [id="11"], [id="12"], [id="13"]) p {
+  section[data-class~="figure-detail"] p {
     margin: 0;
   }
-  section:is([id="9"], [id="11"], [id="12"], [id="13"]) object.interactive-dynamic-filtering-figure {
+  section[data-class~="figure-detail"] object.interactive-dynamic-filtering-figure {
     max-height: 585px;
+  }
+  section[data-class~="figure-focus"] {
+    padding: 20px 26px 24px;
+  }
+  section[data-class~="figure-focus"] h1 {
+    margin-bottom: 2px;
+  }
+  section[data-class~="figure-focus"] img,
+  section[data-class~="figure-focus"] object.interactive-dynamic-filtering-figure {
+    max-height: 585px;
+    width: 100%;
+  }
+  section[data-class~="figure-focus"] .caption {
+    font-size: 15px;
+    margin-top: 2px;
   }
   .caption {
     color: var(--df-muted);
@@ -258,9 +355,72 @@ style: |
     color: var(--df-green);
     font-weight: 700;
   }
+  section.merge-overview table,
+  section[data-class~="merge-overview"] table {
+    display: table;
+    margin: 42px auto 0 !important;
+    width: auto;
+  }
+  .default-badge {
+    background: #e9ddf5;
+    border-radius: 999px;
+    color: var(--df-blue);
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-left: 6px;
+    padding: 3px 8px;
+    vertical-align: middle;
+  }
   section[data-class~="plan"] pre {
     font-size: 17px;
     line-height: 1.3;
+  }
+  section[data-class~="plan"] {
+    padding: 38px 52px 42px;
+  }
+  section[data-class~="plan"] h1 {
+    font-size: 48px;
+    margin: 0 0 22px;
+  }
+  section[data-class~="plan"] .columns {
+    gap: 30px;
+    grid-template-columns: 0.82fr 1.18fr;
+  }
+  .api-list {
+    display: grid;
+    gap: 14px;
+  }
+  .api-item {
+    background: #fbfafd;
+    border: 1px solid #d9cfea;
+    border-left: 4px solid var(--df-blue);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .api-item h2 {
+    color: var(--df-blue);
+    font-size: 21px;
+    margin: 0 0 6px;
+  }
+  .api-item .api-method {
+    display: block;
+    font-size: 17px;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .api-item .api-method code {
+    font-size: 17px;
+  }
+  .api-item p,
+  .api-identity {
+    color: var(--df-muted);
+    font-size: 15.5px;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .api-identity {
+    padding: 0 8px;
   }
   section[data-class~="benchmark"] {
     font-size: 22px;
@@ -312,6 +472,33 @@ style: |
   section[data-class~="case-slide"] ul {
     margin: 8px 0;
   }
+  section[data-class~="case-slide"] .tradeoffs {
+    list-style: none;
+    padding-left: 0;
+  }
+  section[data-class~="case-slide"] .tradeoffs li {
+    padding-left: 22px;
+    position: relative;
+  }
+  section[data-class~="case-slide"] .tradeoffs li::before {
+    font-weight: 800;
+    left: 0;
+    position: absolute;
+  }
+  section[data-class~="case-slide"] .tradeoffs .pro::before {
+    color: #2ca44f;
+    content: "+";
+  }
+  section[data-class~="case-slide"] .tradeoffs .con::before {
+    color: #d63f32;
+    content: "-";
+  }
+  section[data-class~="case-slide"] .tradeoffs .uncertain::before {
+    color: #d6a400;
+    content: "●";
+    font-size: 0.7em;
+    top: 0.35em;
+  }
   section[data-class~="case-slide"] .callout {
     font-size: 18px;
     margin-top: 10px;
@@ -351,7 +538,7 @@ use it no longer share memory—or even a machine.
 
 # The Motivating Query
 
-<div class="columns wide-left">
+<div class="columns">
 <div>
 
 ```sql
@@ -374,6 +561,23 @@ The large `fact` input becomes the **probe side**.
 
 Only a small subset of probe keys can match.
 
+<svg class="join-sketch" viewBox="0 0 420 230" role="img" aria-label="The dimension build side and fact probe side flow upward into a hash join">
+  <defs>
+    <marker id="join-data-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#8b95a7"/></marker>
+  </defs>
+  <rect x="132" y="16" width="156" height="68" rx="13" fill="#6f42c1"/>
+  <text x="210" y="45" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">Hash Join</text>
+  <text x="210" y="67" text-anchor="middle" font-size="13" fill="#eee5f7">matching keys</text>
+  <rect x="18" y="146" width="174" height="66" rx="12" fill="#f3effa" stroke="#9d7bc4" stroke-width="2"/>
+  <text x="105" y="174" text-anchor="middle" font-size="18" font-weight="700" fill="#241735">dim</text>
+  <text x="105" y="196" text-anchor="middle" font-size="14" fill="#675b73">build side · small</text>
+  <rect x="228" y="146" width="174" height="66" rx="12" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+  <text x="315" y="174" text-anchor="middle" font-size="18" font-weight="700" fill="#241735">fact</text>
+  <text x="315" y="196" text-anchor="middle" font-size="14" fill="#675b73">probe side · large</text>
+  <path d="M105 146C105 116 162 111 177 84" fill="none" stroke="#8b95a7" stroke-width="2.5" marker-end="url(#join-data-arrow)"/>
+  <path d="M315 146C315 116 258 111 243 84" fill="none" stroke="#8b95a7" stroke-width="2.5" marker-end="url(#join-data-arrow)"/>
+</svg>
+
 </div>
 </div>
 
@@ -381,6 +585,59 @@ Only a small subset of probe keys can match.
 Start with the familiar hash-join shape. We read the small input first and build
 a hash table. The question is how much of the large fact table we need to process
 before discovering that most rows cannot match.
+-->
+
+---
+
+<!-- _class: runtime-overview -->
+
+# Other Runtime Filtering
+
+<div class="runtime-cards">
+  <div class="runtime-card">
+    <h2>TopK Sort</h2>
+    <svg viewBox="0 0 460 260" role="img" aria-label="A TopK sort sends its current kth-value bound back to a data source">
+      <defs>
+        <marker id="sort-data-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#8b95a7"/></marker>
+        <marker id="sort-filter-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#d74633"/></marker>
+      </defs>
+      <rect x="105" y="20" width="250" height="72" rx="13" fill="#f3effa" stroke="#9d7bc4" stroke-width="2"/>
+      <text x="230" y="50" text-anchor="middle" font-size="20" font-weight="700" fill="#241735">SortExec · TopK</text>
+      <text x="230" y="74" text-anchor="middle" font-size="14" fill="#675b73">current kth value</text>
+      <rect x="105" y="172" width="250" height="66" rx="13" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <text x="230" y="211" text-anchor="middle" font-size="20" font-weight="700" fill="#241735">Data Source</text>
+      <path d="M175 172V100" fill="none" stroke="#8b95a7" stroke-width="3" marker-end="url(#sort-data-arrow)"/>
+      <text x="157" y="140" text-anchor="end" font-size="13" fill="#675b73">rows</text>
+      <path d="M285 92V164" fill="none" stroke="#d74633" stroke-width="3" marker-end="url(#sort-filter-arrow)"/>
+      <text x="303" y="132" font-size="13" fill="#a73728">bound</text>
+    </svg>
+    <p>Reject rows that cannot enter the current top K.</p>
+  </div>
+  <div class="runtime-card">
+    <h2>MIN / MAX Aggregate</h2>
+    <svg viewBox="0 0 460 260" role="img" aria-label="A MIN or MAX aggregate sends its current bound back to a data source">
+      <defs>
+        <marker id="agg-data-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#8b95a7"/></marker>
+        <marker id="agg-filter-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#d74633"/></marker>
+      </defs>
+      <rect x="105" y="20" width="250" height="72" rx="13" fill="#f3effa" stroke="#9d7bc4" stroke-width="2"/>
+      <text x="230" y="50" text-anchor="middle" font-size="19" font-weight="700" fill="#241735">AggregateExec</text>
+      <text x="230" y="74" text-anchor="middle" font-size="14" fill="#675b73">current MIN / MAX</text>
+      <rect x="105" y="172" width="250" height="66" rx="13" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <text x="230" y="211" text-anchor="middle" font-size="20" font-weight="700" fill="#241735">Data Source</text>
+      <path d="M175 172V100" fill="none" stroke="#8b95a7" stroke-width="3" marker-end="url(#agg-data-arrow)"/>
+      <text x="157" y="140" text-anchor="end" font-size="13" fill="#675b73">rows</text>
+      <path d="M285 92V164" fill="none" stroke="#d74633" stroke-width="3" marker-end="url(#agg-filter-arrow)"/>
+      <text x="303" y="132" font-size="13" fill="#a73728">bound</text>
+    </svg>
+    <p>Reject values that cannot improve the result.</p>
+  </div>
+</div>
+
+<!--
+Joins are the motivating case, but the same runtime-filter channel supports
+other producers. A TopK sort publishes its current kth-value threshold, while a
+MIN or MAX aggregate publishes a bound that becomes tighter during execution.
 -->
 
 ---
@@ -412,7 +669,7 @@ The network makes that avoided work even more valuable in a distributed plan.
 
 ---
 
-<!-- _class: figure -->
+<!-- _class: figure figure-focus -->
 
 # Colocated Dynamic Filtering
 
@@ -429,7 +686,7 @@ are colocated.
 
 ---
 
-<!-- _class: figure -->
+<!-- _class: figure figure-focus -->
 
 # Remote Dynamic Filtering
 
@@ -442,6 +699,86 @@ The optimization does not automatically become distributed. The join can update
 its in-memory expression, but a scan on another worker owns a different process and
 cannot observe that memory. We need to turn an implicit memory relationship into
 explicit query dataflow.
+-->
+
+---
+
+<!-- _class: challenge-overview -->
+
+# Why Remote Filtering Is Hard
+
+<div class="challenge-cards">
+  <div class="challenge-card">
+    <h2>1. Partitioned Producers</h2>
+    <svg viewBox="0 0 520 260" role="img" aria-label="Three build tasks each produce a different filter F0, F1, or F2">
+      <defs>
+        <marker id="producer-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#8b95a7"/></marker>
+      </defs>
+      <rect x="18" y="24" width="140" height="58" rx="11" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <rect x="190" y="24" width="140" height="58" rx="11" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <rect x="362" y="24" width="140" height="58" rx="11" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <text x="88" y="59" text-anchor="middle" font-size="17" font-weight="700" fill="#241735">Build Task 0</text>
+      <text x="260" y="59" text-anchor="middle" font-size="17" font-weight="700" fill="#241735">Build Task 1</text>
+      <text x="432" y="59" text-anchor="middle" font-size="17" font-weight="700" fill="#241735">Build Task 2</text>
+      <path d="M88 82V116" stroke="#8b95a7" stroke-width="2.5" marker-end="url(#producer-arrow)"/>
+      <path d="M260 82V116" stroke="#8b95a7" stroke-width="2.5" marker-end="url(#producer-arrow)"/>
+      <path d="M432 82V116" stroke="#8b95a7" stroke-width="2.5" marker-end="url(#producer-arrow)"/>
+      <rect x="48" y="124" width="80" height="48" rx="24" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <rect x="220" y="124" width="80" height="48" rx="24" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <rect x="392" y="124" width="80" height="48" rx="24" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <text x="88" y="155" text-anchor="middle" font-size="19" font-weight="700" fill="#6f42c1">F0</text>
+      <text x="260" y="155" text-anchor="middle" font-size="19" font-weight="700" fill="#6f42c1">F1</text>
+      <text x="432" y="155" text-anchor="middle" font-size="19" font-weight="700" fill="#6f42c1">F2</text>
+      <path d="M88 172C88 211 175 213 212 218" fill="none" stroke="#8b95a7" stroke-width="2" marker-end="url(#producer-arrow)"/>
+      <path d="M260 172V207" fill="none" stroke="#8b95a7" stroke-width="2" marker-end="url(#producer-arrow)"/>
+      <path d="M432 172C432 211 345 213 308 218" fill="none" stroke="#8b95a7" stroke-width="2" marker-end="url(#producer-arrow)"/>
+      <rect x="190" y="208" width="140" height="42" rx="10" fill="#fff1ee" stroke="#d74633" stroke-width="2"/>
+      <text x="260" y="234" text-anchor="middle" font-size="16" font-weight="700" fill="#a73728">Globally safe?</text>
+    </svg>
+    <p>No single filter describes the complete build side.</p>
+  </div>
+  <div class="challenge-card">
+    <h2>2. Different Consumers</h2>
+    <svg viewBox="0 0 520 260" role="img" aria-label="Three producer filters must be routed to four differently partitioned scan tasks">
+      <defs>
+        <marker id="route-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#8b95a7"/></marker>
+      </defs>
+      <rect x="56" y="24" width="72" height="44" rx="22" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <rect x="224" y="24" width="72" height="44" rx="22" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <rect x="392" y="24" width="72" height="44" rx="22" fill="#f3effa" stroke="#8c62ba" stroke-width="2"/>
+      <text x="92" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#6f42c1">F0</text>
+      <text x="260" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#6f42c1">F1</text>
+      <text x="428" y="52" text-anchor="middle" font-size="17" font-weight="700" fill="#6f42c1">F2</text>
+      <path d="M92 68L218 111" stroke="#8b95a7" stroke-width="2" marker-end="url(#route-arrow)"/>
+      <path d="M260 68V103" stroke="#8b95a7" stroke-width="2" marker-end="url(#route-arrow)"/>
+      <path d="M428 68L302 111" stroke="#8b95a7" stroke-width="2" marker-end="url(#route-arrow)"/>
+      <rect x="195" y="108" width="130" height="45" rx="11" fill="#fff1ee" stroke="#d74633" stroke-width="2"/>
+      <text x="260" y="136" text-anchor="middle" font-size="17" font-weight="700" fill="#a73728">Route which?</text>
+      <path d="M230 153L83 193" stroke="#8b95a7" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#route-arrow)"/>
+      <path d="M248 153L203 193" stroke="#8b95a7" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#route-arrow)"/>
+      <path d="M272 153L317 193" stroke="#8b95a7" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#route-arrow)"/>
+      <path d="M290 153L437 193" stroke="#8b95a7" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#route-arrow)"/>
+      <rect x="25" y="199" width="115" height="48" rx="10" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <rect x="145" y="199" width="115" height="48" rx="10" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <rect x="265" y="199" width="115" height="48" rx="10" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <rect x="385" y="199" width="110" height="48" rx="10" fill="#f5f7fa" stroke="#aab4c2" stroke-width="2"/>
+      <text x="82" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#241735">Scan Task A</text>
+      <text x="202" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#241735">Scan Task B</text>
+      <text x="322" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#241735">Scan Task C</text>
+      <text x="440" y="229" text-anchor="middle" font-size="15" font-weight="700" fill="#241735">Scan Task D</text>
+    </svg>
+    <p>Producer and consumer partitioning need not align.</p>
+  </div>
+</div>
+
+<div class="callout">Remote dynamic filtering is both a <strong>correctness</strong> problem and a <strong>routing</strong> problem.</div>
+
+<!--
+A partitioned producer does not emit one authoritative predicate. Each task sees
+only its slice of the build side and produces F0, F1, and so on. We must know when
+the view is complete and how those predicates can be combined without rejecting a
+valid row. Then we must route the safe result to consumer tasks whose partitioning
+may have a different count or expression. Task indexes alone are not sufficient.
 -->
 
 ---
@@ -466,7 +803,7 @@ explicit query dataflow.
   </div>
 </div>
 
-<div class="callout">The coordinator transports expressions; DataFusion's existing scan-pushdown path applies them.</div>
+<div class="callout">The coordinator discovers, merges, and routes expressions. DataFusion's existing scan-pushdown path applies them.</div>
 
 <!--
 The coordinator is not inventing a new filtering engine. It discovers expression
@@ -489,63 +826,72 @@ This is broadly similar to the coordinator-mediated designs in Trino and Spark.
 │ HashJoinExec producers=[1]
 │   ...
 │   NetworkShuffleExec
-│
-├─ Stage 2 · 4 tasks
-│ HashJoinExec producers=[2]
-│   ...
-│   NetworkShuffleExec
-│
-└─ Stage 1 · 8 tasks
-  DataSourceExec consumers=[1, 2]
+└────────────────────────────
+  ┌─ Stage 2 · 4 tasks
+  │ HashJoinExec producers=[2]
+  │   ...
+  │   NetworkShuffleExec
+  └──────────────────────────
+    ┌─ Stage 1 · 8 tasks
+    │   ...
+    │ DataSourceExec consumers=[1, 2]
+    └──────────────────────────────
 ```
 
 </div>
 <div>
 
-**Producers**
-
-- `HashJoinExec`
-- `AggregateExec`
-- `SortExec`
-
-**Consumer**
-
-- `DataSourceExec`
-
-Stable IDs preserve the relationship across stage boundaries and serialization.
+<div class="api-list">
+  <div class="api-item">
+    <h2>Uniquely Identify Filters</h2>
+    <span class="api-method"><a href="https://github.com/apache/datafusion/pull/21807"><code>PhysicalExpr::<br>expression_id()</code></a> · <a href="https://github.com/apache/datafusion/pull/21807">PR #21807</a></span>
+  </div>
+  <div class="api-item">
+    <h2>Find consumers</h2>
+    <span class="api-method"><a href="https://github.com/apache/datafusion/pull/24018"><code>ExecutionPlan::<br>apply_expressions()</code></a> · <a href="https://github.com/apache/datafusion/pull/24018">PR #24018</a></span>
+  </div>
+  <div class="api-item">
+    <h2>Find producers</h2>
+    <span class="api-method"><a href="https://github.com/apache/datafusion/pull/24068"><code>ExecutionPlan::<br>dynamic_expressions_produced()</code></a> · <a href="https://github.com/apache/datafusion/pull/24068">PR #24068</a></span>
+  </div>
+</div>
 
 </div>
 </div>
 
 <!--
-Discovery happens before the plan is divided among workers. A producer ID marks the
-operator that generates an expression; the same ID is attached to every consumer
-that can apply it.
+Discovery happens before the plan is divided among workers. apply_expressions finds
+the dynamic expressions attached to consumers, while dynamic_expressions_produced
+identifies the update sources. PhysicalExpr::expression_id, added in #21807, connects
+both sides without requiring the distributed layer to match concrete ExecutionPlan
+implementations.
 -->
 
 ---
 
-# The Merge Rule Depends on the Producer
+<!-- _class: merge-overview -->
 
-| Producer shape | When can we publish? | Safe global predicate |
+# Optimal Merging and Forwarding Behavior
+
+| Producer shape | Wait for complete filter? | Behavior |
 |---|---|---|
-| `CollectLeft` hash join | After the first complete copy | Forward that filter |
-| Partitioned hash join | After every build task completes | <span class="merge-or">F₀ OR F₁ OR … OR Fₙ</span> |
-| MIN / MAX aggregate | On each useful generation | <span class="merge-and">F₀ AND F₁ AND … AND Fₙ</span> |
-| TopK sort | On each useful generation | <span class="merge-and">F₀ AND F₁ AND … AND Fₙ</span> |
-
-<div class="callout">Every published predicate must be safe for every consumer partition.</div>
+| Partitioned hash join <span class="default-badge">Safest default</span> | Yes | <span class="merge-or">F₀ OR F₁ OR … OR Fₙ</span> |
+| CollectLeft hash join | Yes | F<sub>first</sub> |
+| MIN/MAX aggregate | No | <span class="merge-and">F₀ AND F₁ AND … AND Fₙ</span> |
+| TopK sort | No | <span class="merge-and">F₀ AND F₁ AND … AND Fₙ</span> |
 
 <!--
-There is no universal merge operation. A partitioned join divides its build-side
-keys, so any key accepted by any producer must survive: OR. Aggregate and TopK
+There is no universal merge operation. The partitioned join rule is the safest
+default: wait for every build task and OR the results so any key accepted by any
+producer survives. Aggregate and TopK
 bounds are independently safe restrictions, so they can be intersected with AND.
-CollectLeft is different again because every task receives an identical build side.
+CollectLeft is different again because every task receives an identical build side,
+so F_first is whichever complete filter arrives first.
 -->
 
 ---
 
-<!-- _class: figure -->
+<!-- _class: figure figure-detail -->
 
 # `CollectLeft` Hash Join
 
@@ -559,7 +905,7 @@ every duplicate report; the first complete filter is already globally correct.
 
 ---
 
-<!-- _class: figure -->
+<!-- _class: figure figure-detail -->
 
 # Partitioned Hash Join
 
@@ -575,9 +921,9 @@ complete view, unions all task predicates, and then releases the probe-side filt
 
 <!-- _class: case-slide -->
 
-# The Big `CASE` Tradeoff
+# (Aside) The Big `CASE` Tradeoff
 
-Two tasks × four per-task hash partitions = eight global filters.
+2 tasks × 4 partitions per task = 8 effective partitions.
 
 <div class="columns">
 <div>
@@ -597,9 +943,11 @@ CASE hash(row) % 4
 END
 ```
 
-- Simple and conservative
-- May evaluate one branch per task
-- Loses some partition selectivity
+<ul class="tradeoffs">
+  <li class="pro">Simple</li>
+  <li class="pro">Correct*</li>
+  <li class="con">Less selective</li>
+</ul>
 
 </div>
 <div>
@@ -616,14 +964,17 @@ CASE hash(row) % 8
 END
 ```
 
-- Preserves all eight filters
-- Evaluates one predicate per row
-- Couples us to the exact repartition expression
+<ul class="tradeoffs">
+  <li class="pro">More selective</li>
+  <li class="con">More expensive with hundreds of <code>CASE</code> branches</li>
+  <li class="con">Tightly coupled to <code>CaseExpr</code>, which maintainers prefer to avoid</li>
+  <li class="uncertain">Unproven benefit</li>
+</ul>
 
 </div>
 </div>
 
-<div class="callout"><code>(hash(key) % M) % N = hash(key) % N</code> keeps the OR form correct when <code>M</code> is a multiple of <code>N</code>. A global CASE is more selective, but larger and more brittle—potential future work as upstream expression evaluation improves.</div>
+<div class="callout">* <code>(hash(key) % M) % N = hash(key) % N</code> keeps the OR form correct when <code>M</code> is a multiple of <code>N</code>. A global CASE is more selective, but larger and more brittle—potential future work as upstream expression evaluation improves.</div>
 
 <!--
 Every join task owns target_partitions per-task filters. We currently preserve each
@@ -641,7 +992,7 @@ work. This remains potential future work alongside adaptive predicate evaluation
 
 ---
 
-<!-- _class: figure figure-tall -->
+<!-- _class: figure figure-tall figure-detail -->
 
 # MIN / MAX Aggregate
 
@@ -656,7 +1007,7 @@ latest reported bounds and sends useful generations back to scans.
 
 ---
 
-<!-- _class: figure figure-tall -->
+<!-- _class: figure figure-tall figure-detail -->
 
 # TopK Sort
 
@@ -670,57 +1021,7 @@ tightest independently safe bound and pushes successive generations to remote sc
 
 ---
 
-# Forwarding Filters to Consumers
-
-<div class="columns">
-<div>
-
-### Join probe sides
-
-The probe side is not polled until the build side is ready.
-
-The remote predicate can arrive before probe scanning begins.
-
-</div>
-<div>
-
-### Sorts and aggregates
-
-Scanning often begins before a useful bound exists.
-
-Later generations tighten the predicate while execution continues.
-
-</div>
-</div>
-
-<div class="callout">Consumers do not universally wait for remote filters. Updates are opportunistic unless operator execution already provides a dependency.</div>
-
-<!--
-It is important not to describe this as a global barrier. Hash joins already have a
-build-before-probe dependency. Sort and aggregate consumers commonly begin scanning
-with a true predicate and adopt tighter filters as they arrive.
--->
-
----
-
-# Correctness First
-
-- **Partitioned joins use OR** so a key accepted by any build partition survives.
-- **Independent bounds use AND** to retain the tightest safe restriction.
-- **Shared expression identity survives serialization** so producers and consumers remain linked.
-- **Missing, late, or unusable updates fail open**—the scan does more work, but query results do not change.
-
-> A dynamic filter is an optimization, never a new source of query semantics.
-
-<!--
-The central invariant is no false negatives. If the system cannot construct or
-deliver a correctness-complete predicate, it keeps the scan open. Every merge rule
-and lifecycle decision follows from that constraint.
--->
-
----
-
-# OSS Work
+# Upstream Work
 
 - [`ExecutionPlan::apply_expressions()` #24018](https://github.com/apache/datafusion/pull/24018)  
   Discover expressions owned by physical plan nodes; restores work begun in [#20337](https://github.com/apache/datafusion/pull/20337).
@@ -782,8 +1083,6 @@ evaluating the filters.
 </div>
 </div>
 
-<div class="callout"><code>parquet=on</code> enables row-filter pushdown and filter reordering; statistics and page-index pruning remain enabled in both modes.</div>
-
 <!--
 The local screen covers 98 comparable TPC-DS queries; Q72 timed out. The distributed
 experiment intentionally reruns the ten strongest local candidates rather than
@@ -799,7 +1098,7 @@ boundaries, so comparisons focus on enabled versus disabled within each setup.
 
 ![Four configurations for the ten largest local TPC-DS improvements.](../docs/source/_static/images/dynamic-filtering/local-tpcds-speedup.svg)
 
-<div class="caption">Full-suite arithmetic mean: <strong>1.05x</strong> with <code>parquet=off</code>, <strong>1.20x</strong> with <code>parquet=on</code>.<br><code>parquet=on</code> adds row-level late materialization; file and row-group statistics pruning remains available in both. <a href="https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/">Upstream DataFusion</a> observed the same compounding effect—up to <strong>22x</strong> with dynamic filters and late materialization together.</div>
+<div class="caption">Full-suite arithmetic mean: <strong>1.05x</strong> with <code>parquet=off</code>, <strong>1.20x</strong> with <code>parquet=on</code>.<br><code>parquet=on</code> adds row-level late materialization; both modes retain statistics pruning. <a href="https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/">Upstream DataFusion</a> sees improvements from this as well.</div>
 
 <!--
 Each query is normalized to Control with the Parquet options off. The ten bars
@@ -909,21 +1208,18 @@ streaming rows while the scan runs.
 
 <!-- _class: figure figure-benchmark-flow -->
 
-# Why Q80 Changes Across Environments
+# Why Q80 Slows Down
 
-![Four timelines compare dynamic filtering off and on in both the local and distributed benchmarks.](../docs/source/_static/images/dynamic-filtering/remote-scan-read-pipeline.svg)
+![Two timelines compare dynamic filtering off and on when Q80 reads from S3.](./q80-s3-read-phases.svg)
 
-<div class="caption">This is a DataFusion Parquet I/O effect, not an inherent cost of remote filters: progressive local reads are cheap; dependent S3 reads are not. Custom Execs and file formats that preserve their read pattern avoid this penalty. <a href="https://github.com/apache/datafusion/issues/24393">DataFusion #24393</a>.</div>
+<div class="caption">This is a DataFusion Parquet I/O effect, not an inherent cost of remote filters. Custom Execs and file formats that preserve their read pattern avoid it. <a href="https://github.com/apache/datafusion/issues/24393">DataFusion #24393</a>.</div>
 
 <!--
-Figure 9 compares filtering off and on in each environment. The local lanes are
-the best-supported explanation from the matching plan and configuration; the
-detailed probes instrumented the distributed runs. DataFusion's Parquet source
-couples pushed-filter evaluation to progressive reads. Those phases are cheap
-against warm local storage, but every dependent S3 read carries I/O overhead.
-The sparse distributed output also waits for EOF. A custom Exec or file format
-that applies the predicate without changing its read pattern avoids this
-specific penalty.
+The figure compares filtering off and on for the distributed S3 run. DataFusion's
+Parquet source couples pushed-filter evaluation to progressive reads, so every
+dependent phase carries S3 I/O overhead. The sparse output also waits for EOF.
+A custom Exec or file format that applies the predicate without changing its read
+pattern avoids this specific penalty.
 -->
 
 ---
@@ -951,9 +1247,9 @@ evaluation itself.
 
 Special thanks to:
 
-- Lía Adriana ([@LiaCastaneda](https://github.com/LiaCastaneda))
-- Gabriel Musat Mestre ([@GabrielMusat](https://github.com/GabrielMusat))
-- Gene Bordegaray ([@gene-bordegaray](https://github.com/gene-bordegaray))
+- [Lía Adriana](https://github.com/LiaCastaneda)
+- [Gabriel Musat Mestre](https://github.com/GabrielMusat)
+- [Gene Bordegaray](https://github.com/gene-bordegaray)
 
 <!--
 Invite questions. Acknowledge the upstream reviewers and contributors who shaped
