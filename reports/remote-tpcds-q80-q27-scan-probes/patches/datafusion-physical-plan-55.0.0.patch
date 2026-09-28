@@ -1,0 +1,255 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -210,6 +210,10 @@
+ [dependencies.pin-project-lite]
+ version = "^0.2.7"
+ 
++[dependencies.rustix]
++version = "1.1.4"
++features = ["time"]
++
+ [dependencies.serde_json]
+ version = "1"
+ features = ["preserve_order"]
+--- a/src/metrics.rs
++++ b/src/metrics.rs
+@@ -19,3 +19,5 @@
+ //! them to keep the public APIs stable.
+ 
+ pub use datafusion_physical_expr_common::metrics::*;
++
++pub mod scan_probe;
+--- /dev/null
++++ b/src/metrics/scan_probe.rs
+@@ -0,0 +1,69 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++//! Benchmark-only probes for separating polling CPU from elapsed I/O time.
++
++use std::future::{Future, poll_fn};
++use std::marker::PhantomData;
++use std::pin::pin;
++use std::rc::Rc;
++use std::time::Duration;
++
++use rustix::time::{ClockId, clock_gettime};
++
++use super::Time;
++
++fn thread_cpu_time() -> Duration {
++    let now = clock_gettime(ClockId::ThreadCPUTime);
++    Duration::new(now.tv_sec as u64, now.tv_nsec as u32)
++}
++
++/// Records thread CPU only within a synchronous scope. Must not cross an await.
++pub struct ThreadCpuTimer {
++    metric: Time,
++    started: Duration,
++    _not_send: PhantomData<Rc<()>>,
++}
++
++impl ThreadCpuTimer {
++    /// Start a CPU timer on the current thread.
++    pub fn start(metric: &Time) -> Self {
++        Self {
++            metric: metric.clone(),
++            started: thread_cpu_time(),
++            _not_send: PhantomData,
++        }
++    }
++}
++
++impl Drop for ThreadCpuTimer {
++    fn drop(&mut self) {
++        self.metric
++            .add_duration(thread_cpu_time().saturating_sub(self.started));
++    }
++}
++
++/// Times the whole await and the CPU in its polls, not background transport tasks.
++pub async fn timed_future<F: Future>(future: F, wall: Time, cpu: Time) -> F::Output {
++    let _wall = wall.timer();
++    let mut future = pin!(future);
++    poll_fn(move |cx| {
++        let _cpu = ThreadCpuTimer::start(&cpu);
++        future.as_mut().poll(cx)
++    })
++    .await
++}
+--- a/src/repartition/mod.rs
++++ b/src/repartition/mod.rs
+@@ -35,7 +35,7 @@
+ use crate::coalesce::LimitedBatchCoalescer;
+ use crate::execution_plan::{CardinalityEffect, EvaluationType, SchedulingType};
+ use crate::hash_utils::create_hashes;
+-use crate::metrics::{BaselineMetrics, SpillMetrics};
++use crate::metrics::{BaselineMetrics, Count, SpillMetrics};
+ use crate::projection::{ProjectionExec, all_columns, make_with_child, update_expr};
+ use crate::sorts::streaming_merge::StreamingMergeBuilder;
+ use crate::spill::spill_manager::SpillManager;
+@@ -52,6 +52,7 @@
+ use arrow::datatypes::{DataType, Schema, SchemaRef, UInt32Type};
+ use arrow_schema::SortOptions;
+ use datafusion_common::config::ConfigOptions;
++use datafusion_common::instant::Instant;
+ use datafusion_common::stats::Precision;
+ use datafusion_common::tree_node::TreeNodeRecursion;
+ use datafusion_common::utils::{compare_rows, extract_row_at_idx_to_buf, transpose};
+@@ -267,19 +268,47 @@
+ /// Cheap to [`Clone`]: both fields are [`Arc`]s.
+ #[derive(Clone)]
+ struct SharedCoalescer {
+-    inner: Arc<Mutex<LimitedBatchCoalescer>>,
++    inner: Arc<Mutex<CoalescerState>>,
+     active_senders: Arc<AtomicUsize>,
++    regular_rows: Count,
++    regular_batches: Count,
++    eof_rows: Count,
++    eof_batches: Count,
++    first_emit_wall: metrics::Time,
++    output_buckets: Count,
++    first_emit_at_eof: Count,
++}
++
++struct CoalescerState {
++    coalescer: LimitedBatchCoalescer,
++    first_input_at: Option<Instant>,
++    emitted_first: bool,
+ }
+ 
+ impl SharedCoalescer {
+-    fn new(schema: SchemaRef, target_batch_size: usize, num_senders: usize) -> Self {
++    fn new(
++        schema: SchemaRef,
++        target_batch_size: usize,
++        num_senders: usize,
++        metrics: &ExecutionPlanMetricsSet,
++        partition: usize,
++    ) -> Self {
++        let count = |name| MetricBuilder::new(metrics).counter(name, partition);
+         Self {
+-            inner: Arc::new(Mutex::new(LimitedBatchCoalescer::new(
+-                schema,
+-                target_batch_size,
+-                None,
+-            ))),
++            inner: Arc::new(Mutex::new(CoalescerState {
++                coalescer: LimitedBatchCoalescer::new(schema, target_batch_size, None),
++                first_input_at: None,
++                emitted_first: false,
++            })),
+             active_senders: Arc::new(AtomicUsize::new(num_senders)),
++            regular_rows: count("probe_coalesce_regular_rows"),
++            regular_batches: count("probe_coalesce_regular_batches"),
++            eof_rows: count("probe_coalesce_eof_rows"),
++            eof_batches: count("probe_coalesce_eof_batches"),
++            first_emit_wall: MetricBuilder::new(metrics)
++                .subset_time("probe_coalesce_first_emit_wall", partition),
++            output_buckets: count("probe_coalesce_output_buckets"),
++            first_emit_at_eof: count("probe_coalesce_first_emit_at_eof"),
+         }
+     }
+ 
+@@ -288,10 +317,19 @@
+     fn push_and_drain(&self, batch: RecordBatch) -> Result<Vec<RecordBatch>> {
+         let mut acc = Vec::new();
+         let mut c = self.inner.lock();
+-        c.push_batch(batch)?;
+-        while let Some(b) = c.next_completed_batch() {
++        if c.first_input_at.is_none() && batch.num_rows() > 0 {
++            c.first_input_at = Some(Instant::now());
++        }
++        c.coalescer.push_batch(batch)?;
++        while let Some(b) = c.coalescer.next_completed_batch() {
+             acc.push(b);
+         }
++        if !acc.is_empty() {
++            self.regular_rows
++                .add(acc.iter().map(RecordBatch::num_rows).sum());
++            self.regular_batches.add(acc.len());
++            self.record_first_output(&mut c, &acc, false);
++        }
+         Ok(acc)
+     }
+ 
+@@ -305,12 +343,32 @@
+         }
+         let mut acc = Vec::new();
+         let mut c = self.inner.lock();
+-        c.finish()?;
+-        while let Some(b) = c.next_completed_batch() {
++        c.coalescer.finish()?;
++        while let Some(b) = c.coalescer.next_completed_batch() {
+             acc.push(b);
+         }
++        self.eof_rows
++            .add(acc.iter().map(RecordBatch::num_rows).sum());
++        self.eof_batches.add(acc.len());
++        self.record_first_output(&mut c, &acc, true);
+         Ok(acc)
+     }
++
++    fn record_first_output(
++        &self,
++        state: &mut CoalescerState,
++        batches: &[RecordBatch],
++        at_eof: bool,
++    ) {
++        if !state.emitted_first && batches.iter().any(|batch| batch.num_rows() > 0) {
++            state.emitted_first = true;
++            self.output_buckets.add(1);
++            self.first_emit_at_eof.add(usize::from(at_eof));
++            if let Some(started) = state.first_input_at {
++                self.first_emit_wall.add_duration(started.elapsed());
++            }
++        }
++    }
+ }
+ 
+ /// Channels and resources for a single output partition.
+@@ -542,6 +600,8 @@
+                     input.schema(),
+                     context.session_config().batch_size(),
+                     num_input_partitions,
++                    metrics,
++                    partition,
+                 )
+             });
+ 
+@@ -773,7 +833,9 @@
+     #[cfg(feature = "proto")]
+     fn try_to_proto(
+         &self,
+-        ctx: &datafusion_physical_expr_common::physical_expr::proto_encode::PhysicalExprEncodeCtx<'_>,
++        ctx: &datafusion_physical_expr_common::physical_expr::proto_encode::PhysicalExprEncodeCtx<
++            '_,
++        >,
+     ) -> Result<Option<protobuf::PhysicalExprNode>> {
+         // Encode the raw ordered children: rebuilding a `LexOrdering` would
+         // deduplicate equivalent children after dynamic-filter remapping.
+@@ -813,7 +875,9 @@
+     /// Reconstructs a [`RangeExpr`] from its protobuf representation.
+     pub fn try_from_proto(
+         node: &protobuf::PhysicalExprNode,
+-        ctx: &datafusion_physical_expr_common::physical_expr::proto_decode::PhysicalExprDecodeCtx<'_>,
++        ctx: &datafusion_physical_expr_common::physical_expr::proto_decode::PhysicalExprDecodeCtx<
++            '_,
++        >,
+     ) -> Result<PhysicalExprRef> {
+         // Decode the raw ordered children for the same reason as `try_to_proto`.
+         let range_expr = match &node.expr_type {

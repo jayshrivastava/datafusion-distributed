@@ -17,8 +17,8 @@ mod tests {
     };
     use datafusion_distributed::{
         DefaultSessionBuilder, DistributedExt, DistributedLeafExec, DistributedMetricsFormat,
-        NetworkCoalesceExec, NetworkShuffleExec, WorkerQueryContext, display_plan_ascii,
-        rewrite_distributed_plan_with_metrics,
+        NetworkBoundaryExt, NetworkCoalesceExec, NetworkShuffleExec, Stage, WorkerQueryContext,
+        display_plan_ascii, rewrite_distributed_plan_with_metrics,
     };
     use futures::TryStreamExt;
     use std::sync::Arc;
@@ -219,6 +219,31 @@ mod tests {
         assert_contains!(&display, "plan_added_at");
         assert_contains!(&display, "plan_executed_at");
         assert_contains!(&display, "plan_finished_at");
+        assert_contains!(&display, "output_first_batch_at");
+        assert_contains!(&display, "output_last_batch_at");
+        assert_contains!(&display, "output_stream_finished_at");
+        assert_contains!(&display, "output_streams_started");
+        assert_contains!(&display, "output_streams_completed");
+        assert_contains!(&display, "output_poll_time");
+
+        d_physical.apply(|node| {
+            if let Some(boundary) = node.as_network_boundary()
+                && let Stage::Local(stage) = boundary.input_stage()
+            {
+                let value = |name| {
+                    stage
+                        .metrics_set
+                        .sum(|metric| metric.value().name() == name)
+                        .unwrap()
+                        .as_usize()
+                };
+                let started = value("output_streams_started");
+                assert!(started > 0);
+                assert_eq!(started, value("output_streams_completed"));
+                assert!(value("output_stream_finished_at") > 0);
+            }
+            Ok(TreeNodeRecursion::Continue)
+        })?;
 
         Ok(())
     }

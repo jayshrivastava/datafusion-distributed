@@ -16,6 +16,7 @@ use crate::{
     TaskCompletedDynamicFilters, TaskData, TaskDynamicFilter, TaskMetrics, Worker,
     WorkerQueryContext, WorkerToCoordinatorMsg,
 };
+use datafusion::common::instant::Instant;
 use datafusion::common::tree_node::TreeNodeRecursion;
 use datafusion::common::{
     DataFusionError, HashMap, HashSet, Result, exec_datafusion_err, internal_err,
@@ -124,7 +125,10 @@ impl Worker {
                     true => Arc::new(std::sync::Mutex::new(Some(dynamic_filters_tx))),
                     false => Arc::new(std::sync::Mutex::new(None)),
                 },
-                task_data_metrics: Arc::new(TaskDataMetrics::new(request.query_start_time_ns)),
+                task_data_metrics: Arc::new(TaskDataMetrics::new(
+                    request.query_start_time_ns,
+                    collect_metrics,
+                )),
             })
         };
 
@@ -210,13 +214,20 @@ impl Worker {
                         sampler_gate.kick_off();
                     }
                     CoordinatorToWorkerMsg::ApplyDynamicFilter(filter) => {
-                        if let Err(error) = apply_merged_dynamic_filter(
+                        let start = Instant::now();
+                        match apply_merged_dynamic_filter(
                             *filter,
                             &dynamic_filter_consumers,
                             &dynamic_filter_task_ctx,
                         ) {
-                            let _ = error_tx.try_send(error);
-                            break;
+                            Ok(true) => task_data
+                                .task_data_metrics
+                                .record_dynamic_filter_applied(start),
+                            Ok(false) => {}
+                            Err(error) => {
+                                let _ = error_tx.try_send(error);
+                                break;
+                            }
                         }
                     }
                 }
@@ -361,9 +372,9 @@ fn apply_merged_dynamic_filter(
     filter: ApplyDynamicFilter,
     consumers: &HashMap<u64, DiscoveredDynamicFilter>,
     task_ctx: &Arc<TaskContext>,
-) -> Result<()> {
+) -> Result<bool> {
     let Some(consumer) = consumers.get(&filter.expression_id) else {
-        return Ok(());
+        return Ok(false);
     };
 
     // Bytes to PhysicalExprNode
@@ -390,7 +401,7 @@ fn apply_merged_dynamic_filter(
     if update.is_complete {
         consumer.expression.mark_complete();
     }
-    Ok(())
+    Ok(true)
 }
 
 /// Finds all consumed dynamic filters for the completed task report.

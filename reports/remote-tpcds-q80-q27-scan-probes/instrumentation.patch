@@ -1,0 +1,558 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 8fa9548..022ee6e 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2336,8 +2336,6 @@ dependencies = [
+ [[package]]
+ name = "datafusion-datasource-parquet"
+ version = "55.0.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "3c0b0dc1453952952fd5c69ad1c7f6042176e69ed233011d47e07cf74ed0949e"
+ dependencies = [
+  "arrow",
+  "arrow-schema",
+@@ -2854,8 +2852,6 @@ dependencies = [
+ [[package]]
+ name = "datafusion-physical-plan"
+ version = "55.0.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "5787e4fcff4adc4fce8948441103a99705018b49c8dff0720b650bd7a15da112"
+ dependencies = [
+  "arrow",
+  "arrow-data",
+@@ -2884,6 +2880,7 @@ dependencies = [
+  "num-traits",
+  "parking_lot",
+  "pin-project-lite",
++ "rustix",
+  "serde_json",
+  "tokio",
+ ]
+diff --git a/Cargo.toml b/Cargo.toml
+index f98cd3e..d37ef72 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -12,6 +12,10 @@ members = [
+ datafusion = { version = "55", default-features = false }
+ datafusion-proto = { version = "55", default-features = false }
+ 
++[patch.crates-io]
++datafusion-physical-plan = { path = "../deps/datafusion-physical-plan-55.0.0" }
++datafusion-datasource-parquet = { path = "../deps/datafusion-datasource-parquet-55.0.0" }
++
+ [package]
+ name = "datafusion-distributed"
+ version = "4.0.0"
+diff --git a/benchmarks/remote-worker/src/main.rs b/benchmarks/remote-worker/src/main.rs
+index a50896b..dcb86fe 100644
+--- a/benchmarks/remote-worker/src/main.rs
++++ b/benchmarks/remote-worker/src/main.rs
+@@ -193,21 +193,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
+                             }
+                         });
+                         let physical = df.create_physical_plan().await.map_err(err)?;
++                        let planning_ms = start.elapsed().as_secs_f64() * 1000.0;
++                        let execution_start = Instant::now();
+                         let mut stream =
+                             execute_stream(physical.clone(), ctx.task_ctx()).map_err(err)?;
+                         let mut count = 0;
++                        let mut first_batch_ms = None;
+                         while let Some(batch) = stream.next().await {
+                             count += batch.map_err(err)?.num_rows();
++                            first_batch_ms.get_or_insert_with(|| {
++                                execution_start.elapsed().as_secs_f64() * 1000.0
++                            });
+                             info!("Gathered {count} rows, query still in progress..")
+                         }
++                        let execution_ms = execution_start.elapsed().as_secs_f64() * 1000.0;
++                        let metrics_start = Instant::now();
+                         let physical = rewrite_distributed_plan_with_metrics(
+                             physical,
+                             DistributedMetricsFormat::PerTask,
+                         )
+                         .await
+                         .map_err(err)?;
++                        let metrics_ms = metrics_start.elapsed().as_secs_f64() * 1000.0;
++                        let render_start = Instant::now();
+                         let stats_q_error = stats_estimation_q_error(&physical);
+                         let plan = display_plan_ascii(physical.as_ref(), true);
++                        let render_ms = render_start.elapsed().as_secs_f64() * 1000.0;
+                         drop(task);
+ 
+                         let mut task_count = 0;
+@@ -223,6 +234,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
+ 
+                         let elapsed = start.elapsed();
+                         let ms = elapsed.as_secs_f64() * 1000.0;
++                        let first_batch = first_batch_ms
++                            .map(|ms| format!("{ms:.3}ms"))
++                            .unwrap_or_else(|| "none".to_owned());
++                        let plan = format!(
++                            "BenchmarkTimings: physical_planning={planning_ms:.3}ms, \
++                             execution={execution_ms:.3}ms, first_batch={first_batch}, \
++                             metrics_collection={metrics_ms:.3}ms, plan_render={render_ms:.3}ms\n{plan}"
++                        );
+                         info!("Finished executing query:\n{sql}\n\n{plan}");
+                         info!("Returned {count} rows in {ms} ms");
+                         abort_notifier.finished();
+diff --git a/src/coordinator/dynamic_filter_registry.rs b/src/coordinator/dynamic_filter_registry.rs
+index 72c1aff..23cfa6f 100644
+--- a/src/coordinator/dynamic_filter_registry.rs
++++ b/src/coordinator/dynamic_filter_registry.rs
+@@ -1,6 +1,7 @@
+ use crate::dynamic_filtering::{discover_dynamic_filter_consumers, dynamic_filter_producer_schema};
+ use crate::{
+-    ApplyDynamicFilter, CoordinatorToWorkerMsg, MaybeEncoded, ProducedDynamicFilter, TaskKey,
++    ApplyDynamicFilter, BytesCounterMetric, BytesMetricExt, CoordinatorToWorkerMsg, MaybeEncoded,
++    ProducedDynamicFilter, TaskKey,
+ };
+ use datafusion::arrow::datatypes::SchemaRef;
+ use datafusion::common::tree_node::{TreeNode, TreeNodeRecursion};
+@@ -14,7 +15,7 @@ use datafusion::physical_expr_common::metrics::{ExecutionPlanMetricsSet, MetricB
+ use datafusion::physical_plan::ExecutionPlan;
+ use datafusion::physical_plan::aggregates::AggregateExec;
+ use datafusion::physical_plan::joins::{HashJoinExec, PartitionMode};
+-use datafusion::physical_plan::metrics::Count;
++use datafusion::physical_plan::metrics::{Count, Time};
+ use datafusion::physical_plan::sorts::sort::SortExec;
+ use datafusion_proto::protobuf::physical_expr_node::ExprType;
+ use datafusion_proto::protobuf::{
+@@ -75,6 +76,11 @@ pub(super) struct DynamicFilterRegistryState {
+ pub(crate) struct DynamicFilterRegistry {
+     pub(super) state: Mutex<DynamicFilterRegistryState>,
+     dynamic_filter_updates_received: Count,
++    dynamic_filter_register_time: Time,
++    dynamic_filter_update_time: Time,
++    dynamic_filter_dispatch_time: Time,
++    dynamic_filter_updates_sent: Count,
++    dynamic_filter_bytes_sent: BytesCounterMetric,
+     error_tx: Sender<DataFusionError>,
+     query_finished: CancellationToken,
+ }
+@@ -89,6 +95,16 @@ impl DynamicFilterRegistry {
+             state: Mutex::new(DynamicFilterRegistryState::default()),
+             dynamic_filter_updates_received: MetricBuilder::new(metrics)
+                 .global_counter("dynamic_filter_updates_received"),
++            dynamic_filter_register_time: MetricBuilder::new(metrics)
++                .subset_time("dynamic_filter_register_time", 0),
++            dynamic_filter_update_time: MetricBuilder::new(metrics)
++                .subset_time("dynamic_filter_update_time", 0),
++            dynamic_filter_dispatch_time: MetricBuilder::new(metrics)
++                .subset_time("dynamic_filter_dispatch_time", 0),
++            dynamic_filter_updates_sent: MetricBuilder::new(metrics)
++                .global_counter("dynamic_filter_updates_sent"),
++            dynamic_filter_bytes_sent: MetricBuilder::new(metrics)
++                .bytes_counter("dynamic_filter_bytes_sent"),
+             error_tx,
+             query_finished,
+         }
+@@ -104,6 +120,7 @@ impl DynamicFilterRegistry {
+         plan: &Arc<dyn ExecutionPlan>,
+         task_key: TaskKey,
+     ) -> Result<()> {
++        let _timer = self.dynamic_filter_register_time.timer();
+         let mut producers = vec![];
+ 
+         plan.apply(|node| {
+@@ -221,6 +238,7 @@ impl DynamicFilterRegistry {
+         report: ProducedDynamicFilter,
+         task_ctx: &TaskContext,
+     ) {
++        let _timer = self.dynamic_filter_update_time.timer();
+         self.record_update_received();
+         let expression = match report.expression.to_proto(task_ctx) {
+             Ok(expression) => expression,
+@@ -329,6 +347,7 @@ impl DynamicFilterRegistry {
+     // Merge and enqueue under the same lock so successive snapshots cannot overtake each other.
+     // Unbounded channel sends do not wait for the network or the receiving worker.
+     fn dispatch(&self, state: &mut DynamicFilterRegistryState, id: u64) {
++        let _timer = self.dynamic_filter_dispatch_time.timer();
+         if self.query_finished.is_cancelled() {
+             return;
+         }
+@@ -368,6 +387,8 @@ impl DynamicFilterRegistry {
+                 }
+                 return;
+             }
++            self.dynamic_filter_updates_sent.add(1);
++            self.dynamic_filter_bytes_sent.add_bytes(expression.len());
+             state.delivered.insert((id, task_key));
+         }
+     }
+diff --git a/src/worker/impl_coordinator_channel.rs b/src/worker/impl_coordinator_channel.rs
+index 6085ee5..ab99821 100644
+--- a/src/worker/impl_coordinator_channel.rs
++++ b/src/worker/impl_coordinator_channel.rs
+@@ -16,6 +16,7 @@ use crate::{
+     TaskCompletedDynamicFilters, TaskData, TaskDynamicFilter, TaskMetrics, Worker,
+     WorkerQueryContext, WorkerToCoordinatorMsg,
+ };
++use datafusion::common::instant::Instant;
+ use datafusion::common::tree_node::TreeNodeRecursion;
+ use datafusion::common::{
+     DataFusionError, HashMap, HashSet, Result, exec_datafusion_err, internal_err,
+@@ -124,7 +125,10 @@ impl Worker {
+                     true => Arc::new(std::sync::Mutex::new(Some(dynamic_filters_tx))),
+                     false => Arc::new(std::sync::Mutex::new(None)),
+                 },
+-                task_data_metrics: Arc::new(TaskDataMetrics::new(request.query_start_time_ns)),
++                task_data_metrics: Arc::new(TaskDataMetrics::new(
++                    request.query_start_time_ns,
++                    collect_metrics,
++                )),
+             })
+         };
+ 
+@@ -210,13 +214,20 @@ impl Worker {
+                         sampler_gate.kick_off();
+                     }
+                     CoordinatorToWorkerMsg::ApplyDynamicFilter(filter) => {
+-                        if let Err(error) = apply_merged_dynamic_filter(
++                        let start = Instant::now();
++                        match apply_merged_dynamic_filter(
+                             *filter,
+                             &dynamic_filter_consumers,
+                             &dynamic_filter_task_ctx,
+                         ) {
+-                            let _ = error_tx.try_send(error);
+-                            break;
++                            Ok(true) => task_data
++                                .task_data_metrics
++                                .record_dynamic_filter_applied(start),
++                            Ok(false) => {}
++                            Err(error) => {
++                                let _ = error_tx.try_send(error);
++                                break;
++                            }
+                         }
+                     }
+                 }
+@@ -361,9 +372,9 @@ fn apply_merged_dynamic_filter(
+     filter: ApplyDynamicFilter,
+     consumers: &HashMap<u64, DiscoveredDynamicFilter>,
+     task_ctx: &Arc<TaskContext>,
+-) -> Result<()> {
++) -> Result<bool> {
+     let Some(consumer) = consumers.get(&filter.expression_id) else {
+-        return Ok(());
++        return Ok(false);
+     };
+ 
+     // Bytes to PhysicalExprNode
+@@ -390,7 +401,7 @@ fn apply_merged_dynamic_filter(
+     if update.is_complete {
+         consumer.expression.mark_complete();
+     }
+-    Ok(())
++    Ok(true)
+ }
+ 
+ /// Finds all consumed dynamic filters for the completed task report.
+diff --git a/src/worker/impl_execute_task.rs b/src/worker/impl_execute_task.rs
+index 1c62fc1..575f703 100644
+--- a/src/worker/impl_execute_task.rs
++++ b/src/worker/impl_execute_task.rs
+@@ -4,7 +4,6 @@ use datafusion::common::exec_datafusion_err;
+ use datafusion::common::{Result, exec_err};
+ use datafusion::error::DataFusionError;
+ use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+-use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
+ use std::sync::Arc;
+ use std::time::Duration;
+ 
+@@ -51,9 +50,7 @@ impl Worker {
+             }
+ 
+             let stream = plan.execute(partition, Arc::clone(&task_ctx))?;
+-            let stream_schema = plan.schema();
+-
+-            streams.push(Box::pin(RecordBatchStreamAdapter::new(stream_schema, stream)) as _);
++            streams.push(task_data.task_data_metrics.track_stream(stream));
+         }
+         Ok((streams, task_ctx))
+     }
+diff --git a/src/worker/task_data.rs b/src/worker/task_data.rs
+index 81ad446..0c8013a 100644
+--- a/src/worker/task_data.rs
++++ b/src/worker/task_data.rs
+@@ -1,12 +1,20 @@
+ use crate::common::OnceLockResult;
+ use crate::common::now_ns;
+-use crate::{MaxLatencyMetric, ProducerHead, TaskCompletedDynamicFilters, TaskMetrics};
++use crate::{
++    FirstLatencyMetric, LatencyMetricExt, MaxLatencyMetric, ProducerHead,
++    TaskCompletedDynamicFilters, TaskMetrics,
++};
++use datafusion::common::instant::Instant;
+ use datafusion::common::{DataFusionError, Result};
+-use datafusion::execution::TaskContext;
++use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+ use datafusion::physical_plan::ExecutionPlan;
+-use datafusion::physical_plan::metrics::{Metric, MetricValue, MetricsSet};
+-use std::borrow::Cow;
++use datafusion::physical_plan::metrics::{
++    Count, ExecutionPlanMetricsSet, MetricBuilder, MetricsSet, Time,
++};
++use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
++use futures::stream::poll_fn;
+ use std::sync::Arc;
++use std::task::Poll;
+ use std::time::Duration;
+ use tokio::sync::oneshot;
+ 
+@@ -39,28 +47,64 @@ pub(crate) const PLAN_FINISHED_AT_METRIC: &str = "plan_finished_at";
+ #[derive(Debug)]
+ pub(super) struct TaskDataMetrics {
+     pub(super) query_start_time_ns: usize,
+-    /// When the plan was set by the coordinator.
+-    pub(super) plan_added_at: MaxLatencyMetric,
++    enabled: bool,
++    metrics: ExecutionPlanMetricsSet,
+     /// When the plan execution was triggered by the parent worker.
+     pub(super) plan_executed_at: MaxLatencyMetric,
+-    /// When the execution stream finished.
++    /// When the coordinator channel closed and final reporting began, not stream EOS.
+     pub(super) plan_finished_at: MaxLatencyMetric,
++    output_first_batch_at: FirstLatencyMetric,
++    output_last_batch_at: MaxLatencyMetric,
++    output_stream_finished_at: MaxLatencyMetric,
++    output_streams_started: Count,
++    output_streams_completed: Count,
++    output_poll_time: Time,
++    output_poll_max: MaxLatencyMetric,
++    dynamic_filter_first_applied_at: FirstLatencyMetric,
++    dynamic_filter_last_applied_at: MaxLatencyMetric,
++    dynamic_filter_updates_applied: Count,
++    dynamic_filter_apply_time: Time,
+ }
+ 
+ impl TaskDataMetrics {
+-    pub(super) fn new(query_start_time_ns: usize) -> Self {
+-        let plan_added_at = MaxLatencyMetric::default();
++    pub(super) fn new(query_start_time_ns: usize, enabled: bool) -> Self {
++        let metrics = ExecutionPlanMetricsSet::new();
++        let plan_added_at = MetricBuilder::new(&metrics).max_latency(PLAN_ADDED_AT_METRIC);
+         plan_added_at.add_duration(Duration::from_nanos(
+             now_ns::<u64>().saturating_sub(query_start_time_ns as u64),
+         ));
+         Self {
+             query_start_time_ns,
+-            plan_added_at,
+-            plan_finished_at: MaxLatencyMetric::default(),
+-            plan_executed_at: MaxLatencyMetric::default(),
++            enabled,
++            plan_finished_at: MetricBuilder::new(&metrics).max_latency(PLAN_FINISHED_AT_METRIC),
++            plan_executed_at: MetricBuilder::new(&metrics).max_latency(PLAN_EXECUTED_AT_METRIC),
++            output_first_batch_at: MetricBuilder::new(&metrics)
++                .first_latency("output_first_batch_at"),
++            output_last_batch_at: MetricBuilder::new(&metrics).max_latency("output_last_batch_at"),
++            output_stream_finished_at: MetricBuilder::new(&metrics)
++                .max_latency("output_stream_finished_at"),
++            output_streams_started: MetricBuilder::new(&metrics)
++                .global_counter("output_streams_started"),
++            output_streams_completed: MetricBuilder::new(&metrics)
++                .global_counter("output_streams_completed"),
++            output_poll_time: MetricBuilder::new(&metrics).subset_time("output_poll_time", 0),
++            output_poll_max: MetricBuilder::new(&metrics).max_latency("output_poll_max"),
++            dynamic_filter_first_applied_at: MetricBuilder::new(&metrics)
++                .first_latency("dynamic_filter_first_applied_at"),
++            dynamic_filter_last_applied_at: MetricBuilder::new(&metrics)
++                .max_latency("dynamic_filter_last_applied_at"),
++            dynamic_filter_updates_applied: MetricBuilder::new(&metrics)
++                .global_counter("dynamic_filter_updates_applied"),
++            dynamic_filter_apply_time: MetricBuilder::new(&metrics)
++                .subset_time("dynamic_filter_apply_time", 0),
++            metrics,
+         }
+     }
+ 
++    fn query_elapsed(&self) -> Duration {
++        Duration::from_nanos(now_ns::<u64>().saturating_sub(self.query_start_time_ns as u64))
++    }
++
+     pub(super) fn mark_execution_started_once(&self) {
+         if self.plan_executed_at.value() == 0 {
+             self.plan_executed_at.add_duration(Duration::from_nanos(
+@@ -76,32 +120,60 @@ impl TaskDataMetrics {
+     }
+ 
+     pub(super) fn to_metrics_set(&self) -> MetricsSet {
+-        let mut metrics_set = MetricsSet::new();
+-        metrics_set.push(max_latency_metric(
+-            PLAN_ADDED_AT_METRIC,
+-            &self.plan_added_at,
+-        ));
+-        metrics_set.push(max_latency_metric(
+-            PLAN_EXECUTED_AT_METRIC,
+-            &self.plan_executed_at,
+-        ));
+-        metrics_set.push(max_latency_metric(
+-            PLAN_FINISHED_AT_METRIC,
+-            &self.plan_finished_at,
+-        ));
++        self.metrics.clone_inner()
++    }
+ 
+-        metrics_set
++    pub(super) fn record_dynamic_filter_applied(&self, start: Instant) {
++        if !self.enabled {
++            return;
++        }
++        self.dynamic_filter_updates_applied.add(1);
++        self.dynamic_filter_apply_time.add_elapsed(start);
++        let elapsed = self.query_elapsed();
++        self.dynamic_filter_first_applied_at.add_duration(elapsed);
++        self.dynamic_filter_last_applied_at.add_duration(elapsed);
+     }
+-}
+ 
+-fn max_latency_metric(name: &'static str, value: &MaxLatencyMetric) -> Arc<Metric> {
+-    Arc::new(Metric::new(
+-        MetricValue::Custom {
+-            name: Cow::Borrowed(name),
+-            value: Arc::new(MaxLatencyMetric::from_nanos(value.value())),
+-        },
+-        None,
+-    ))
++    pub(super) fn track_stream(
++        self: &Arc<Self>,
++        mut stream: SendableRecordBatchStream,
++    ) -> SendableRecordBatchStream {
++        if !self.enabled {
++            return stream;
++        }
++        let schema = stream.schema();
++        let metrics = Arc::clone(self);
++        let mut completed = false;
++        metrics.output_streams_started.add(1);
++        let stream = poll_fn(move |cx| {
++            if completed {
++                return Poll::Ready(None);
++            }
++            // Poll time is inclusive wall time, not CPU time or time awaiting a wakeup.
++            let start = Instant::now();
++            let result = stream.as_mut().poll_next(cx);
++            let duration = start.elapsed();
++            metrics.output_poll_time.add_duration(duration);
++            metrics.output_poll_max.add_duration(duration);
++            match &result {
++                Poll::Ready(Some(Ok(_))) => {
++                    let elapsed = metrics.query_elapsed();
++                    metrics.output_first_batch_at.add_duration(elapsed);
++                    metrics.output_last_batch_at.add_duration(elapsed);
++                }
++                Poll::Ready(None) => {
++                    completed = true;
++                    metrics.output_streams_completed.add(1);
++                    metrics
++                        .output_stream_finished_at
++                        .add_duration(metrics.query_elapsed());
++                }
++                _ => {}
++            }
++            result
++        });
++        Box::pin(RecordBatchStreamAdapter::new(schema, stream))
++    }
+ }
+ 
+ impl TaskData {
+diff --git a/src/worker/test_utils/worker_handles.rs b/src/worker/test_utils/worker_handles.rs
+index 13e8b7e..fa293ab 100644
+--- a/src/worker/test_utils/worker_handles.rs
++++ b/src/worker/test_utils/worker_handles.rs
+@@ -215,7 +215,7 @@ pub async fn register_plan_on_worker(
+             final_plan: Default::default(),
+             metrics_tx: Arc::new(std::sync::Mutex::new(Some(metrics_tx))),
+             completed_dynamic_filters_tx: Arc::new(std::sync::Mutex::new(Some(dynamic_filters_tx))),
+-            task_data_metrics: Arc::new(TaskDataMetrics::new(0)),
++            task_data_metrics: Arc::new(TaskDataMetrics::new(0, true)),
+         }))
+         .expect("failed to write to task data");
+ }
+diff --git a/tests/metrics_collection.rs b/tests/metrics_collection.rs
+index c6a421d..4a8e4cb 100644
+--- a/tests/metrics_collection.rs
++++ b/tests/metrics_collection.rs
+@@ -17,8 +17,8 @@ mod tests {
+     };
+     use datafusion_distributed::{
+         DefaultSessionBuilder, DistributedExt, DistributedLeafExec, DistributedMetricsFormat,
+-        NetworkCoalesceExec, NetworkShuffleExec, WorkerQueryContext, display_plan_ascii,
+-        rewrite_distributed_plan_with_metrics,
++        NetworkBoundaryExt, NetworkCoalesceExec, NetworkShuffleExec, Stage, WorkerQueryContext,
++        display_plan_ascii, rewrite_distributed_plan_with_metrics,
+     };
+     use futures::TryStreamExt;
+     use std::sync::Arc;
+@@ -207,10 +207,18 @@ mod tests {
+         let format = DistributedMetricsFormat::PerTask;
+         let (d_ctx, _guard, _) = start_localhost_context(3, DefaultSessionBuilder).await;
+ 
+-        let query =
+-            r#"SELECT count(*), "RainToday" FROM weather GROUP BY "RainToday" ORDER BY count(*)"#;
++        let query = r#"SELECT count(*), "RainToday" FROM weather WHERE "MinTemp" > 0 GROUP BY "RainToday" ORDER BY count(*)"#;
+ 
+         let s_ctx = SessionContext::default();
++        for ctx in [&s_ctx, &d_ctx] {
++            ctx.state_ref()
++                .write()
++                .config_mut()
++                .options_mut()
++                .execution
++                .parquet
++                .pushdown_filters = true;
++        }
+         let (_, mut d_physical) = execute(&s_ctx, &d_ctx, query).await?;
+         d_physical = rewrite_with_metrics(d_physical.clone(), format).await;
+ 
+@@ -219,6 +227,49 @@ mod tests {
+         assert_contains!(&display, "plan_added_at");
+         assert_contains!(&display, "plan_executed_at");
+         assert_contains!(&display, "plan_finished_at");
++        assert_contains!(&display, "output_first_batch_at");
++        assert_contains!(&display, "output_last_batch_at");
++        assert_contains!(&display, "output_stream_finished_at");
++        assert_contains!(&display, "output_streams_started");
++        assert_contains!(&display, "output_streams_completed");
++        assert_contains!(&display, "output_poll_time");
++
++        for name in [
++            "probe_prepare_filters_cpu",
++            "probe_build_reader_cpu",
++            "probe_row_filter_cpu",
++            "probe_scan_poll_cpu",
++            "probe_decode_cpu",
++            "probe_range_read_calls",
++            "probe_range_read_ranges",
++            "probe_data_bytes_requested",
++            "probe_first_batch_read_calls",
++            "probe_scan_first_batch_wall",
++        ] {
++            assert_contains!(&display, name);
++            node_metrics::<DistributedLeafExec>(&d_physical, name, 0);
++        }
++        assert_contains!(&display, "probe_coalesce_first_emit_wall");
++        assert_contains!(&display, "probe_coalesce_eof_rows");
++
++        d_physical.apply(|node| {
++            if let Some(boundary) = node.as_network_boundary()
++                && let Stage::Local(stage) = boundary.input_stage()
++            {
++                let value = |name| {
++                    stage
++                        .metrics_set
++                        .sum(|metric| metric.value().name() == name)
++                        .unwrap()
++                        .as_usize()
++                };
++                let started = value("output_streams_started");
++                assert!(started > 0);
++                assert_eq!(started, value("output_streams_completed"));
++                assert!(value("output_stream_finished_at") > 0);
++            }
++            Ok(TreeNodeRecursion::Continue)
++        })?;
+ 
+         Ok(())
+     }

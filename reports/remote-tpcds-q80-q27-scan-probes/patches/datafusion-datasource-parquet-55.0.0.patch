@@ -1,0 +1,317 @@
+--- a/src/metrics.rs
++++ b/src/metrics.rs
+@@ -101,6 +101,62 @@
+     /// number of rows that were stored in the cache after evaluating predicates
+     /// reused for the output.
+     pub predicate_cache_records: Gauge,
++    pub(crate) probe: ScanProbeMetrics,
++}
++
++/// Benchmark-only metrics; CPU timers overlap their enclosing decode/poll timers.
++#[derive(Debug, Clone)]
++pub(crate) struct ScanProbeMetrics {
++    pub prepare_filters_wall: Time,
++    pub prepare_filters_cpu: Time,
++    pub build_reader_wall: Time,
++    pub build_reader_cpu: Time,
++    pub row_filter_cpu: Time,
++    pub scan_poll_wall: Time,
++    pub scan_poll_cpu: Time,
++    pub decode_wall: Time,
++    pub decode_cpu: Time,
++    pub range_read_wall: Time,
++    pub range_read_cpu: Time,
++    pub first_batch_read_wall: Time,
++    pub scan_first_batch_wall: Time,
++    pub range_read_calls: Count,
++    pub range_read_ranges: Count,
++    pub data_bytes_requested: Count,
++    pub first_batch_read_calls: Count,
++    pub scan_streams: Count,
++    pub scan_output_streams: Count,
++}
++
++impl ScanProbeMetrics {
++    fn new(builder: &MetricBuilder<'_>, partition: usize) -> Self {
++        let time = |name| builder.clone().subset_time(name, partition);
++        let count = |name| builder.clone().counter(name, partition);
++        Self {
++            prepare_filters_wall: time("probe_prepare_filters_wall"),
++            prepare_filters_cpu: time("probe_prepare_filters_cpu"),
++            build_reader_wall: time("probe_build_reader_wall"),
++            build_reader_cpu: time("probe_build_reader_cpu"),
++            row_filter_cpu: time("probe_row_filter_cpu"),
++            scan_poll_wall: time("probe_scan_poll_wall"),
++            scan_poll_cpu: time("probe_scan_poll_cpu"),
++            decode_wall: time("probe_decode_wall"),
++            decode_cpu: time("probe_decode_cpu"),
++            range_read_wall: time("probe_range_read_wall"),
++            range_read_cpu: time("probe_range_read_cpu"),
++            first_batch_read_wall: time("probe_first_batch_read_wall"),
++            scan_first_batch_wall: time("probe_scan_first_batch_wall"),
++            range_read_calls: count("probe_range_read_calls"),
++            range_read_ranges: count("probe_range_read_ranges"),
++            data_bytes_requested: builder
++                .clone()
++                .with_category(MetricCategory::Bytes)
++                .counter("probe_data_bytes_requested", partition),
++            first_batch_read_calls: count("probe_first_batch_read_calls"),
++            scan_streams: count("probe_scan_streams"),
++            scan_output_streams: count("probe_scan_output_streams"),
++        }
++    }
+ }
+ 
+ impl ParquetFileMetrics {
+@@ -114,6 +170,7 @@
+         // allocating the same filename string for each metric.
+         let filename_label = Label::new("filename", Arc::<str>::from(filename));
+         let builder = MetricBuilder::new(metrics).with_label(filename_label);
++        let probe = ScanProbeMetrics::new(&builder, partition);
+ 
+         // -----------------------
+         // 'summary' level metrics
+@@ -231,6 +288,7 @@
+             predicate_cache_inner_records,
+             predicate_cache_records,
+             row_groups_pruned_dynamic_filter,
++            probe,
+         }
+     }
+ 
+--- a/src/opener/mod.rs
++++ b/src/opener/mod.rs
+@@ -62,6 +62,7 @@
+ use datafusion_physical_expr_adapter::PhysicalExprAdapterFactory;
+ use datafusion_physical_expr_common::physical_expr::PhysicalExpr;
+ use datafusion_physical_expr_common::sort_expr::LexOrdering;
++use datafusion_physical_plan::metrics::scan_probe::ThreadCpuTimer;
+ use datafusion_physical_plan::metrics::{
+     BaselineMetrics, Count, ExecutionPlanMetricsSet, MetricBuilder, MetricCategory,
+ };
+@@ -941,6 +942,9 @@
+     /// Prepare file-schema coercions and pruning predicates once metadata is
+     /// loaded.
+     fn prepare_filters(self) -> Result<FiltersPreparedParquetOpen> {
++        let probe = self.prepared.file_metrics.probe.clone();
++        let _wall = probe.prepare_filters_wall.timer();
++        let _cpu = ThreadCpuTimer::start(&probe.prepare_filters_cpu);
+         let MetadataLoadedParquetOpen {
+             mut prepared,
+             mut reader_metadata,
+@@ -1334,6 +1338,9 @@
+ impl RowGroupsPrunedParquetOpen {
+     /// Build the final parquet stream once all pruning work is complete.
+     fn build_stream(self) -> Result<BoxStream<'static, Result<RecordBatch>>> {
++        let probe = self.prepared.loaded.prepared.file_metrics.probe.clone();
++        let _wall = probe.build_reader_wall.timer();
++        let _cpu = ThreadCpuTimer::start(&probe.build_reader_cpu);
+         let RowGroupsPrunedParquetOpen {
+             prepared,
+             mut row_groups,
+@@ -1557,6 +1564,9 @@
+             baseline_metrics: prepared.baseline_metrics,
+             row_group_pruner,
+             row_groups_pruned_dynamic,
++            probe: prepared.file_metrics.probe,
++            probe_started: None,
++            probe_emitted_first: false,
+         }
+         .into_stream();
+ 
+--- a/src/push_decoder.rs
++++ b/src/push_decoder.rs
+@@ -53,14 +53,17 @@
+ use parquet::arrow::push_decoder::{ParquetPushDecoder, ParquetPushDecoderBuilder};
+ use parquet::file::metadata::ParquetMetaData;
+ 
++use datafusion_common::instant::Instant;
+ use datafusion_common::{DataFusionError, Result, internal_err};
+ use datafusion_physical_expr::expressions::DynamicFilterTracking;
+ use datafusion_physical_expr_common::physical_expr::PhysicalExpr;
++use datafusion_physical_plan::metrics::scan_probe::{ThreadCpuTimer, timed_future};
+ use datafusion_physical_plan::metrics::{BaselineMetrics, Count, Gauge};
+ use datafusion_pruning::{PruningPredicate, PruningPredicateBuilder};
+ 
+ use crate::access_plan::PreparedAccessPlan;
+ use crate::decoder_projection::DecoderProjection;
++use crate::metrics::ScanProbeMetrics;
+ use crate::row_group_filter::RowGroupPruningStatistics;
+ 
+ /// Shared options applied to the [`ParquetPushDecoderBuilder`] for a file
+@@ -272,6 +275,9 @@
+     pub(crate) row_group_pruner: Option<RowGroupPruner>,
+     /// Count of row groups skipped at runtime by [`Self::row_group_pruner`].
+     pub(crate) row_groups_pruned_dynamic: Count,
++    pub(crate) probe: ScanProbeMetrics,
++    pub(crate) probe_started: Option<Instant>,
++    pub(crate) probe_emitted_first: bool,
+ }
+ 
+ impl PushDecoderStreamState {
+@@ -280,9 +286,20 @@
+     /// The returned stream is fused and boxed so the caller can wrap it (for
+     /// example, with an early-stopping adapter) without naming the unfold type.
+     pub(crate) fn into_stream(self) -> BoxStream<'static, Result<RecordBatch>> {
+-        futures::stream::unfold(self, |state| async move { state.transition().await })
++        let probe = self.probe.clone();
++        let mut stream =
++            futures::stream::unfold(
++                self,
++                |state| async move { state.transition().await },
++            )
+             .fuse()
+-            .boxed()
++            .boxed();
++        futures::stream::poll_fn(move |cx| {
++            let _wall = probe.scan_poll_wall.timer();
++            let _cpu = ThreadCpuTimer::start(&probe.scan_poll_cpu);
++            stream.poll_next_unpin(cx)
++        })
++        .boxed()
+     }
+ 
+     /// Advances the decoder state machine until the next [`RecordBatch`] is
+@@ -299,16 +316,34 @@
+     /// miri where `&mut self` creates a single opaque borrow that conflicts
+     /// with `unfold`'s ownership across yield points.
+     async fn transition(mut self) -> Option<(Result<RecordBatch>, Self)> {
++        if self.probe_started.is_none() {
++            self.probe_started = Some(Instant::now());
++            self.probe.scan_streams.add(1);
++        }
+         loop {
+             // Step 1: drain a batch from the active reader if any.
+             if let Some(reader) = self.active_reader.as_mut() {
+-                match reader.next() {
++                let next = {
++                    let _wall = self.probe.decode_wall.timer();
++                    let _cpu = ThreadCpuTimer::start(&self.probe.decode_cpu);
++                    reader.next()
++                };
++                match next {
+                     Some(Ok(batch)) => {
+                         let mut timer = self.baseline_metrics.elapsed_compute().timer();
+                         self.copy_arrow_reader_metrics();
+                         let result = self.project_batch(&batch);
+                         timer.stop();
+                         drop(timer);
++                        if result.as_ref().is_ok_and(|batch| batch.num_rows() > 0)
++                            && !self.probe_emitted_first
++                        {
++                            self.probe_emitted_first = true;
++                            self.probe.scan_output_streams.add(1);
++                            self.probe.scan_first_batch_wall.add_duration(
++                                self.probe_started.expect("stream started").elapsed(),
++                            );
++                        }
+                         return Some((result, self));
+                     }
+                     Some(Err(e)) => {
+@@ -392,13 +427,34 @@
+ 
+             // Step 3: drive the decoder.
+             let decoder = self.decoder.as_mut().expect("decoder present");
+-            match decoder.try_next_reader() {
++            let next = {
++                let _wall = self.probe.decode_wall.timer();
++                let _cpu = ThreadCpuTimer::start(&self.probe.decode_cpu);
++                decoder.try_next_reader()
++            };
++            match next {
+                 Ok(DecodeResult::NeedsData(ranges)) => {
+-                    let data = self
+-                        .reader
+-                        .get_byte_ranges(ranges.clone())
+-                        .await
+-                        .map_err(DataFusionError::from);
++                    self.probe.range_read_calls.add(1);
++                    self.probe.range_read_ranges.add(ranges.len());
++                    self.probe.data_bytes_requested.add(
++                        ranges
++                            .iter()
++                            .map(|range| (range.end - range.start) as usize)
++                            .sum(),
++                    );
++                    let first_read_wall = self.probe.first_batch_read_wall.clone();
++                    let first_read_timer = (!self.probe_emitted_first).then(|| {
++                        self.probe.first_batch_read_calls.add(1);
++                        first_read_wall.timer()
++                    });
++                    let data = timed_future(
++                        self.reader.get_byte_ranges(ranges.clone()),
++                        self.probe.range_read_wall.clone(),
++                        self.probe.range_read_cpu.clone(),
++                    )
++                    .await
++                    .map_err(DataFusionError::from);
++                    drop(first_read_timer);
+                     match data {
+                         Ok(data) => {
+                             if let Err(e) = self
+--- a/src/row_filter.rs
++++ b/src/row_filter.rs
+@@ -82,6 +82,7 @@
+ use datafusion_physical_expr::{PhysicalExpr, split_conjunction};
+ 
+ use datafusion_physical_plan::metrics;
++use datafusion_physical_plan::metrics::scan_probe::ThreadCpuTimer;
+ 
+ use super::ParquetFileMetrics;
+ use super::supported_predicates::supports_list_predicates;
+@@ -117,6 +118,7 @@
+     rows_matched: metrics::Count,
+     /// how long was spent evaluating this predicate
+     time: metrics::Time,
++    cpu_time: metrics::Time,
+ }
+ 
+ impl DatafusionArrowPredicate {
+@@ -126,6 +128,7 @@
+         rows_pruned: metrics::Count,
+         rows_matched: metrics::Count,
+         time: metrics::Time,
++        cpu_time: metrics::Time,
+     ) -> Result<Self> {
+         let physical_expr =
+             reassign_expr_columns(candidate.expr, &candidate.read_plan.projected_schema)?;
+@@ -136,6 +139,7 @@
+             rows_pruned,
+             rows_matched,
+             time,
++            cpu_time,
+         })
+     }
+ }
+@@ -148,6 +152,7 @@
+     fn evaluate(&mut self, batch: RecordBatch) -> ArrowResult<BooleanArray> {
+         // scoped timer updates on drop
+         let mut timer = self.time.timer();
++        let _cpu = ThreadCpuTimer::start(&self.cpu_time);
+ 
+         self.physical_expr
+             .evaluate(&batch)
+@@ -457,6 +462,7 @@
+                 predicate_rows_pruned,
+                 predicate_rows_matched,
+                 time.clone(),
++                file_metrics.probe.row_filter_cpu.clone(),
+             )
+             .map(|pred| Box::new(pred) as _)
+         })
+@@ -628,6 +634,7 @@
+             Count::new(),
+             Count::new(),
+             Time::new(),
++            Time::new(),
+         )
+         .expect("creating filter predicate");
+ 
+@@ -667,6 +674,7 @@
+             Count::new(),
+             Count::new(),
+             Time::new(),
++            Time::new(),
+         )
+         .expect("creating filter predicate");
+ 

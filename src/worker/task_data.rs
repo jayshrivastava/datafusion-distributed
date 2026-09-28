@@ -1,12 +1,20 @@
 use crate::common::OnceLockResult;
 use crate::common::now_ns;
-use crate::{MaxLatencyMetric, ProducerHead, TaskCompletedDynamicFilters, TaskMetrics};
+use crate::{
+    FirstLatencyMetric, LatencyMetricExt, MaxLatencyMetric, ProducerHead,
+    TaskCompletedDynamicFilters, TaskMetrics,
+};
+use datafusion::common::instant::Instant;
 use datafusion::common::{DataFusionError, Result};
-use datafusion::execution::TaskContext;
+use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_plan::ExecutionPlan;
-use datafusion::physical_plan::metrics::{Metric, MetricValue, MetricsSet};
-use std::borrow::Cow;
+use datafusion::physical_plan::metrics::{
+    Count, ExecutionPlanMetricsSet, MetricBuilder, MetricsSet, Time,
+};
+use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
+use futures::stream::poll_fn;
 use std::sync::Arc;
+use std::task::Poll;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -39,26 +47,62 @@ pub(crate) const PLAN_FINISHED_AT_METRIC: &str = "plan_finished_at";
 #[derive(Debug)]
 pub(super) struct TaskDataMetrics {
     pub(super) query_start_time_ns: usize,
-    /// When the plan was set by the coordinator.
-    pub(super) plan_added_at: MaxLatencyMetric,
+    enabled: bool,
+    metrics: ExecutionPlanMetricsSet,
     /// When the plan execution was triggered by the parent worker.
     pub(super) plan_executed_at: MaxLatencyMetric,
-    /// When the execution stream finished.
+    /// When the coordinator channel closed and final reporting began, not stream EOS.
     pub(super) plan_finished_at: MaxLatencyMetric,
+    output_first_batch_at: FirstLatencyMetric,
+    output_last_batch_at: MaxLatencyMetric,
+    output_stream_finished_at: MaxLatencyMetric,
+    output_streams_started: Count,
+    output_streams_completed: Count,
+    output_poll_time: Time,
+    output_poll_max: MaxLatencyMetric,
+    dynamic_filter_first_applied_at: FirstLatencyMetric,
+    dynamic_filter_last_applied_at: MaxLatencyMetric,
+    dynamic_filter_updates_applied: Count,
+    dynamic_filter_apply_time: Time,
 }
 
 impl TaskDataMetrics {
-    pub(super) fn new(query_start_time_ns: usize) -> Self {
-        let plan_added_at = MaxLatencyMetric::default();
+    pub(super) fn new(query_start_time_ns: usize, enabled: bool) -> Self {
+        let metrics = ExecutionPlanMetricsSet::new();
+        let plan_added_at = MetricBuilder::new(&metrics).max_latency(PLAN_ADDED_AT_METRIC);
         plan_added_at.add_duration(Duration::from_nanos(
             now_ns::<u64>().saturating_sub(query_start_time_ns as u64),
         ));
         Self {
             query_start_time_ns,
-            plan_added_at,
-            plan_finished_at: MaxLatencyMetric::default(),
-            plan_executed_at: MaxLatencyMetric::default(),
+            enabled,
+            plan_finished_at: MetricBuilder::new(&metrics).max_latency(PLAN_FINISHED_AT_METRIC),
+            plan_executed_at: MetricBuilder::new(&metrics).max_latency(PLAN_EXECUTED_AT_METRIC),
+            output_first_batch_at: MetricBuilder::new(&metrics)
+                .first_latency("output_first_batch_at"),
+            output_last_batch_at: MetricBuilder::new(&metrics).max_latency("output_last_batch_at"),
+            output_stream_finished_at: MetricBuilder::new(&metrics)
+                .max_latency("output_stream_finished_at"),
+            output_streams_started: MetricBuilder::new(&metrics)
+                .global_counter("output_streams_started"),
+            output_streams_completed: MetricBuilder::new(&metrics)
+                .global_counter("output_streams_completed"),
+            output_poll_time: MetricBuilder::new(&metrics).subset_time("output_poll_time", 0),
+            output_poll_max: MetricBuilder::new(&metrics).max_latency("output_poll_max"),
+            dynamic_filter_first_applied_at: MetricBuilder::new(&metrics)
+                .first_latency("dynamic_filter_first_applied_at"),
+            dynamic_filter_last_applied_at: MetricBuilder::new(&metrics)
+                .max_latency("dynamic_filter_last_applied_at"),
+            dynamic_filter_updates_applied: MetricBuilder::new(&metrics)
+                .global_counter("dynamic_filter_updates_applied"),
+            dynamic_filter_apply_time: MetricBuilder::new(&metrics)
+                .subset_time("dynamic_filter_apply_time", 0),
+            metrics,
         }
+    }
+
+    fn query_elapsed(&self) -> Duration {
+        Duration::from_nanos(now_ns::<u64>().saturating_sub(self.query_start_time_ns as u64))
     }
 
     pub(super) fn mark_execution_started_once(&self) {
@@ -76,32 +120,60 @@ impl TaskDataMetrics {
     }
 
     pub(super) fn to_metrics_set(&self) -> MetricsSet {
-        let mut metrics_set = MetricsSet::new();
-        metrics_set.push(max_latency_metric(
-            PLAN_ADDED_AT_METRIC,
-            &self.plan_added_at,
-        ));
-        metrics_set.push(max_latency_metric(
-            PLAN_EXECUTED_AT_METRIC,
-            &self.plan_executed_at,
-        ));
-        metrics_set.push(max_latency_metric(
-            PLAN_FINISHED_AT_METRIC,
-            &self.plan_finished_at,
-        ));
-
-        metrics_set
+        self.metrics.clone_inner()
     }
-}
 
-fn max_latency_metric(name: &'static str, value: &MaxLatencyMetric) -> Arc<Metric> {
-    Arc::new(Metric::new(
-        MetricValue::Custom {
-            name: Cow::Borrowed(name),
-            value: Arc::new(MaxLatencyMetric::from_nanos(value.value())),
-        },
-        None,
-    ))
+    pub(super) fn record_dynamic_filter_applied(&self, start: Instant) {
+        if !self.enabled {
+            return;
+        }
+        self.dynamic_filter_updates_applied.add(1);
+        self.dynamic_filter_apply_time.add_elapsed(start);
+        let elapsed = self.query_elapsed();
+        self.dynamic_filter_first_applied_at.add_duration(elapsed);
+        self.dynamic_filter_last_applied_at.add_duration(elapsed);
+    }
+
+    pub(super) fn track_stream(
+        self: &Arc<Self>,
+        mut stream: SendableRecordBatchStream,
+    ) -> SendableRecordBatchStream {
+        if !self.enabled {
+            return stream;
+        }
+        let schema = stream.schema();
+        let metrics = Arc::clone(self);
+        let mut completed = false;
+        metrics.output_streams_started.add(1);
+        let stream = poll_fn(move |cx| {
+            if completed {
+                return Poll::Ready(None);
+            }
+            // Poll time is inclusive wall time, not CPU time or time awaiting a wakeup.
+            let start = Instant::now();
+            let result = stream.as_mut().poll_next(cx);
+            let duration = start.elapsed();
+            metrics.output_poll_time.add_duration(duration);
+            metrics.output_poll_max.add_duration(duration);
+            match &result {
+                Poll::Ready(Some(Ok(_))) => {
+                    let elapsed = metrics.query_elapsed();
+                    metrics.output_first_batch_at.add_duration(elapsed);
+                    metrics.output_last_batch_at.add_duration(elapsed);
+                }
+                Poll::Ready(None) => {
+                    completed = true;
+                    metrics.output_streams_completed.add(1);
+                    metrics
+                        .output_stream_finished_at
+                        .add_duration(metrics.query_elapsed());
+                }
+                _ => {}
+            }
+            result
+        });
+        Box::pin(RecordBatchStreamAdapter::new(schema, stream))
+    }
 }
 
 impl TaskData {

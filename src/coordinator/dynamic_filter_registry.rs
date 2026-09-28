@@ -2,8 +2,8 @@ use super::partitioned_dynamic_filter::{HashRouting, merge_hash_predicates};
 use crate::common::TreeNodeExt;
 use crate::dynamic_filtering::{discover_dynamic_filter_consumers, dynamic_filter_producer_schema};
 use crate::{
-    ApplyDynamicFilter, CoordinatorToWorkerMsg, DistributedTaskContext, MaybeEncoded,
-    ProducedDynamicFilter, TaskKey,
+    ApplyDynamicFilter, BytesCounterMetric, BytesMetricExt, CoordinatorToWorkerMsg,
+    DistributedTaskContext, MaybeEncoded, ProducedDynamicFilter, TaskKey,
 };
 use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::common::tree_node::TreeNodeRecursion;
@@ -17,7 +17,7 @@ use datafusion::physical_expr_common::metrics::{ExecutionPlanMetricsSet, MetricB
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::physical_plan::aggregates::AggregateExec;
 use datafusion::physical_plan::joins::{HashJoinExec, PartitionMode};
-use datafusion::physical_plan::metrics::Count;
+use datafusion::physical_plan::metrics::{Count, Time};
 use datafusion::physical_plan::sorts::sort::SortExec;
 use datafusion_proto::protobuf::physical_expr_node::ExprType;
 use datafusion_proto::protobuf::{
@@ -80,6 +80,11 @@ pub(crate) struct DynamicFilterRegistry {
     pub(super) state: Mutex<DynamicFilterRegistryState>,
     dynamic_filter_updates_received: Count,
     dynamic_filter_global_hash_merges: Count,
+    dynamic_filter_register_time: Time,
+    dynamic_filter_update_time: Time,
+    dynamic_filter_dispatch_time: Time,
+    dynamic_filter_updates_sent: Count,
+    dynamic_filter_bytes_sent: BytesCounterMetric,
     error_tx: Sender<DataFusionError>,
     query_finished: CancellationToken,
 }
@@ -96,6 +101,16 @@ impl DynamicFilterRegistry {
                 .global_counter("dynamic_filter_updates_received"),
             dynamic_filter_global_hash_merges: MetricBuilder::new(metrics)
                 .global_counter("dynamic_filter_global_hash_merges"),
+            dynamic_filter_register_time: MetricBuilder::new(metrics)
+                .subset_time("dynamic_filter_register_time", 0),
+            dynamic_filter_update_time: MetricBuilder::new(metrics)
+                .subset_time("dynamic_filter_update_time", 0),
+            dynamic_filter_dispatch_time: MetricBuilder::new(metrics)
+                .subset_time("dynamic_filter_dispatch_time", 0),
+            dynamic_filter_updates_sent: MetricBuilder::new(metrics)
+                .global_counter("dynamic_filter_updates_sent"),
+            dynamic_filter_bytes_sent: MetricBuilder::new(metrics)
+                .bytes_counter("dynamic_filter_bytes_sent"),
             error_tx,
             query_finished,
         }
@@ -113,6 +128,7 @@ impl DynamicFilterRegistry {
         task_count: usize,
         task_ctx: &TaskContext,
     ) -> Result<()> {
+        let _timer = self.dynamic_filter_register_time.timer();
         let mut producers = vec![];
 
         plan.apply_with_dt_ctx(
@@ -241,6 +257,7 @@ impl DynamicFilterRegistry {
         report: ProducedDynamicFilter,
         task_ctx: &TaskContext,
     ) {
+        let _timer = self.dynamic_filter_update_time.timer();
         self.record_update_received();
         let expression = match report.expression.to_proto(task_ctx) {
             Ok(expression) => expression,
@@ -358,6 +375,7 @@ impl DynamicFilterRegistry {
     // Merge and enqueue under the same lock so successive snapshots cannot overtake each other.
     // Unbounded channel sends do not wait for the network or the receiving worker.
     fn dispatch(&self, state: &mut DynamicFilterRegistryState, id: u64) {
+        let _timer = self.dynamic_filter_dispatch_time.timer();
         if self.query_finished.is_cancelled() {
             return;
         }
@@ -397,6 +415,8 @@ impl DynamicFilterRegistry {
                 }
                 return;
             }
+            self.dynamic_filter_updates_sent.add(1);
+            self.dynamic_filter_bytes_sent.add_bytes(expression.len());
             state.delivered.insert((id, task_key));
         }
     }

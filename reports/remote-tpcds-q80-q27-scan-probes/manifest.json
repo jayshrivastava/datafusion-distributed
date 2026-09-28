@@ -1,0 +1,2086 @@
+{
+  "created_at": "2026-09-26T18:00:47.702Z",
+  "status": "complete",
+  "source_commit": "c78f9e124875c6bb25cb63ed16df75af700eb34d",
+  "build": {
+    "profile": "release",
+    "target": "x86_64-unknown-linux-gnu",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "command": "cargo zigbuild --locked --manifest-path benchmarks/remote-worker/Cargo.toml --package datafusion-distributed-remote-worker --release --bin worker --target x86_64-unknown-linux-gnu"
+  },
+  "source_patch_sha256": "d289c1f4f32607dba4fba52be8d5cd78e24e4830d202480a30a8afb7ea4a4756",
+  "lockfile_sha256": "a7228f74e744d7c2a4ab610c3864bb0a52c5060f3ea94cd3360599367b3a7776",
+  "dependency_provenance": {
+    "created_at": "2026-09-26T17:48:57.070Z",
+    "dependencies": {
+      "datafusion-physical-plan-55.0.0": {
+        "patch": "patches/datafusion-physical-plan-55.0.0.patch",
+        "patch_sha256": "2e918f1b7dd2795f2294b7346f114685489d48b414e73cd1c41a59666ed02c5b",
+        "files": {
+          "Cargo.toml": {
+            "original": "0f4164feed2a4fc26d369b9265816589e5fce312f526bd50e80d0a4e1736d6f3",
+            "instrumented": "c4c68d9e26c59d9e17903f77406c606b8988ff71530ea4c347c38c1de6e211fa"
+          },
+          "src/metrics.rs": {
+            "original": "47b3c587bd9992bfade61664f84f1d9ccc221fd43e02d2451876511e425ad311",
+            "instrumented": "aa0443a32dfa31b6b132a40c30296791247a739754da0a46581c8b23aa04eb1e"
+          },
+          "src/metrics/scan_probe.rs": {
+            "original": null,
+            "instrumented": "b0bee5d432d5461991a8fef511e0983bd5cb6b557a68dc969d7230538e893d5e"
+          },
+          "src/repartition/mod.rs": {
+            "original": "dd40d7cb4970465bc8848a940d1b99af66a8649ef2459c70b4358280131c745c",
+            "instrumented": "ce4411b88e5d9d62017a650e7a6e816ab4e3f926be9ce464cd10238df98741a0"
+          }
+        },
+        "registry_checksum": "5787e4fcff4adc4fce8948441103a99705018b49c8dff0720b650bd7a15da112"
+      },
+      "datafusion-datasource-parquet-55.0.0": {
+        "patch": "patches/datafusion-datasource-parquet-55.0.0.patch",
+        "patch_sha256": "f3ad0f7fdc8fdbc3105cad3c4e674b09c3f44e35e7f2e6e6c1fe7556d77bbd94",
+        "files": {
+          "src/metrics.rs": {
+            "original": "c2381160f3c5f2bc5218b6ce0f59d36d89c2ae3d29a30c2d979f3cb019acccc4",
+            "instrumented": "77691db4cefc47c51920cd22211b0dbe484f294531ce539648536d5063825aa0"
+          },
+          "src/opener/mod.rs": {
+            "original": "9c5cb58ce06a357679259e23b279877452f17e758db54e43704920d379642f8a",
+            "instrumented": "d27885e9a3785e625a2e1f19c6d4a06b94849dee316a2f9c5e7de918b4476640"
+          },
+          "src/push_decoder.rs": {
+            "original": "03c7592172555b520938017bda783f0fa71cb3b523200b3d2a7818d284f92008",
+            "instrumented": "509886f1cb28bc12c52af67d74225abb0c75fb04a4e48c33c907558f52248cb7"
+          },
+          "src/row_filter.rs": {
+            "original": "7ca8f0d40b66f0f92d47d3bdfcbe28018b16d00d9b49693fa1791be9a7c90aca",
+            "instrumented": "f4fb2fe9c31677d823af62a66533db780e10ce6f35ec1efeb90c54dd3593d247"
+          }
+        },
+        "registry_checksum": "3c0b0dc1453952952fd5c69ad1c7f6042176e69ed233011d47e07cf74ed0949e"
+      }
+    },
+    "sources_archive": "raw/dependency-sources.tar.gz",
+    "sources_sha256": "aca1ac64c09627151d604e10fd77f15d597f86418ab75404ba59fda74e977fa2",
+    "lockfile": "raw/Cargo.lock",
+    "lockfile_sha256": "a7228f74e744d7c2a4ab610c3864bb0a52c5060f3ea94cd3360599367b3a7776",
+    "dependency_versions_changed": false,
+    "added_dependency_edge": "datafusion-physical-plan -> existing rustix 1.1.4 (time feature)"
+  },
+  "tools_commit": "f94bce8617bc1c31f3fca06326859149b9c07bc6",
+  "foundation": {
+    "benchmarkInstanceType": "c5n.2xlarge",
+    "benchmarkNodeCount": 12,
+    "clusterName": "datafusion-bench-eks",
+    "coordinatorInstanceType": "m6i.large",
+    "datasetBucketName": "datafusion-bench-datasets-7577d16bcd821c638ceb2c86aa",
+    "imageBuilderProjectName": "datafusion-bench-image-builder",
+    "region": "us-east-1",
+    "repositoryUrls": {
+      "ballista": "891007267895.dkr.ecr.us-east-1.amazonaws.com/datafusion-bench/ballista",
+      "datafusion": "891007267895.dkr.ecr.us-east-1.amazonaws.com/datafusion-bench/datafusion",
+      "spark": "891007267895.dkr.ecr.us-east-1.amazonaws.com/datafusion-bench/spark",
+      "trino": "891007267895.dkr.ecr.us-east-1.amazonaws.com/datafusion-bench/trino"
+    },
+    "resultsBucketName": "datafusion-bench-results-a018b0fa87759a2e8613d58ed5"
+  },
+  "deployment": "datafusion-clickbench-df-investigation",
+  "workers": {
+    "instance_type": "c5n.4xlarge",
+    "cpu": "15",
+    "memory": "38Gi"
+  },
+  "artifact": {
+    "path": "/home/bits/datafusion-distributed/reports/remote-tpcds-q80-q27-scan-probes/raw/worker-A-instrumented",
+    "sha256": "0a2248aad6fecda5ee94e44bc46d9c23faceabf4ccb3f024be31d7a4ce027d30",
+    "uri": "s3://datafusion-bench-datasets-7577d16bcd821c638ceb2c86aa/.benchmark-artifacts/datafusion/0a2248aad6fecda5ee94e44bc46d9c23faceabf4ccb3f024be31d7a4ce027d30/worker"
+  },
+  "dataset": "tpcds/sf10",
+  "queries": [
+    "q80",
+    "q27"
+  ],
+  "query_inputs": {
+    "q80": {
+      "sql": "queries/q80.sql",
+      "sha256": "b05ac664972bde94ddd71accee4f7b90b43e090c3f349a08c2eb3fcb644b6fee",
+      "expected_rows": 100
+    },
+    "q27": {
+      "sql": "queries/q27.sql",
+      "sha256": "bb7928b546f36d99bad2d369ddfcef13d43b5b30ecb10a63e688628e876eb115",
+      "expected_rows": 100
+    }
+  },
+  "experiment": "A only; dynamic filters off/on, Parquet row pushdown and reorder on in both cases; scan CPU/read/coalescer probes",
+  "sessions": [
+    {
+      "number": 1,
+      "workers": 12,
+      "partitions": 15,
+      "queries": [
+        "q80",
+        "q27"
+      ],
+      "pods": [
+        "46fb52a3-c1f1-4ce5-aa3a-9755a6e7ef3c",
+        "54f9b87c-bbfe-4f50-a364-aeb4e03026cf",
+        "60b805f5-1d36-4c2f-bf79-d8a4965e84a4",
+        "6c2d7439-ac46-4071-b920-d901b995869a",
+        "6d19a9ac-68fb-4f7c-96e2-49d7fff06739",
+        "7fc8b69c-5843-4ac7-9083-cf4393e9f22d",
+        "7fdc6d74-ad0f-46b2-bc46-5c746d90f21a",
+        "b8d1c9e0-fdb7-4edc-ad0b-a1fa4c52b283",
+        "c7e5b035-c562-4630-8ac7-e631e20cbde8",
+        "cf76afa5-a54f-4626-a34f-e2e1e5da0ff3",
+        "d557bee0-7b9f-41ea-b2b9-2d36a95ece3a",
+        "ee31e56d-5bf9-4152-afa3-62497094d267"
+      ]
+    },
+    {
+      "number": 2,
+      "workers": 12,
+      "partitions": 15,
+      "queries": [
+        "q27",
+        "q80"
+      ],
+      "pods": [
+        "09943614-8652-4e3e-8a2e-949f83e74473",
+        "1e4e370e-db11-4af0-97c1-18adf871010d",
+        "27700990-602b-4672-a65c-5504f271a1da",
+        "70622f9b-4d85-46e5-953d-6cdd38fc6752",
+        "7b87103a-94f1-4a0d-9a7c-6627686f789c",
+        "92de2653-900a-4a48-849b-cbf46cdbf2ab",
+        "b5365f7d-1e17-4c37-84bb-a074494f85fa",
+        "dd3a8d1d-0bf4-409e-80e6-3ff5e0f2acb2",
+        "e487efb0-7183-454b-89d7-06b6ce70a1d7",
+        "e7fb27a0-1f8b-48d2-9d9b-f5d8b7c9e670",
+        "f635ffa7-36bb-4fb7-ba49-127ca6e062ca",
+        "fb1f8d39-f022-49d6-b4d9-262294a152e0"
+      ]
+    }
+  ],
+  "pairs_per_session": 10,
+  "samples": [
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 0,
+      "kind": "smoke",
+      "elapsed_ms": 2192.940004,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 24.919,
+        "execution": 1620.973,
+        "first_batch": 1590.242,
+        "metrics_collection": 185.546,
+        "plan_render": 361.476
+      },
+      "plan": "raw/plans/s1-q80-Control-on-smoke-0.txt.gz",
+      "at": "2026-09-26T18:03:02.063Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 0,
+      "kind": "smoke",
+      "elapsed_ms": 1669.115387,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 30.817,
+        "execution": 1133.221,
+        "first_batch": 1100.902,
+        "metrics_collection": 202.944,
+        "plan_render": 302.108
+      },
+      "plan": "raw/plans/s1-q80-A-on-smoke-0.txt.gz",
+      "at": "2026-09-26T18:03:04.359Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 2168.160851,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.52,
+        "execution": 1423.937,
+        "first_batch": 1394.122,
+        "metrics_collection": 201.628,
+        "plan_render": 517.053
+      },
+      "plan": "raw/plans/s1-q80-Control-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:03:54.785Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 1751.0576819999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.178,
+        "execution": 1224.207,
+        "first_batch": 1190.365,
+        "metrics_collection": 226.568,
+        "plan_render": 273.082
+      },
+      "plan": "raw/plans/s1-q80-A-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:03:57.535Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1613.595328,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.89,
+        "execution": 936.004,
+        "first_batch": 903.829,
+        "metrics_collection": 238.617,
+        "plan_render": 413.052
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:03:59.902Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1542.353802,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.438,
+        "execution": 1009.665,
+        "first_batch": 974.586,
+        "metrics_collection": 213.148,
+        "plan_render": 292.075
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:04:02.037Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1606.20452,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.162,
+        "execution": 1084.983,
+        "first_batch": 1045.824,
+        "metrics_collection": 223.154,
+        "plan_render": 270.883
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:04:04.272Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1473.4638200000002,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.799,
+        "execution": 870.83,
+        "first_batch": 835.088,
+        "metrics_collection": 216.269,
+        "plan_render": 359.538
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:04:06.345Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1570.4161299999998,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.152,
+        "execution": 859.776,
+        "first_batch": 822.084,
+        "metrics_collection": 214.283,
+        "plan_render": 469.173
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:04:08.536Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1414.637089,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.622,
+        "execution": 874.098,
+        "first_batch": 837.442,
+        "metrics_collection": 223.086,
+        "plan_render": 290.799
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:04:10.628Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1432.14241,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.793,
+        "execution": 904.735,
+        "first_batch": 869.5,
+        "metrics_collection": 225.165,
+        "plan_render": 276.423
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:04:12.673Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1681.122081,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.197,
+        "execution": 779.162,
+        "first_batch": 746.059,
+        "metrics_collection": 220.043,
+        "plan_render": 655.696
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:04:14.955Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1675.420679,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.282,
+        "execution": 919.088,
+        "first_batch": 885.484,
+        "metrics_collection": 217.935,
+        "plan_render": 513.091
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:04:17.259Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1401.678273,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.025,
+        "execution": 854.35,
+        "first_batch": 817.122,
+        "metrics_collection": 235.851,
+        "plan_render": 285.431
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:04:19.347Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1630.9202480000001,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.669,
+        "execution": 1055.036,
+        "first_batch": 1018.813,
+        "metrics_collection": 258.651,
+        "plan_render": 290.54
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:04:21.582Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1444.586262,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.892,
+        "execution": 801.982,
+        "first_batch": 762.985,
+        "metrics_collection": 259.019,
+        "plan_render": 355.662
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:04:23.706Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1549.2977329999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.555,
+        "execution": 775.548,
+        "first_batch": 741.983,
+        "metrics_collection": 255.843,
+        "plan_render": 490.325
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:04:25.914Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1600.7482790000001,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.891,
+        "execution": 1055.741,
+        "first_batch": 1017.259,
+        "metrics_collection": 235.473,
+        "plan_render": 281.623
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:04:28.176Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1360.317298,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.907,
+        "execution": 819.067,
+        "first_batch": 779.235,
+        "metrics_collection": 240.06,
+        "plan_render": 274.26
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:04:30.195Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1420.7092850000001,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.333,
+        "execution": 773.976,
+        "first_batch": 739.25,
+        "metrics_collection": 232.877,
+        "plan_render": 387.501
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:04:32.283Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1519.404094,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.63,
+        "execution": 822.513,
+        "first_batch": 786.906,
+        "metrics_collection": 228.621,
+        "plan_render": 442.617
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:04:34.472Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1593.397741,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.927,
+        "execution": 1054.655,
+        "first_batch": 1015.929,
+        "metrics_collection": 231.953,
+        "plan_render": 279.834
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:04:36.674Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1329.407987,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.875,
+        "execution": 794.582,
+        "first_batch": 757.16,
+        "metrics_collection": 228.342,
+        "plan_render": 279.586
+      },
+      "plan": "raw/plans/s1-q80-A-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:04:38.676Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1531.4791599999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.18,
+        "execution": 846.139,
+        "first_batch": 810.41,
+        "metrics_collection": 228.796,
+        "plan_render": 430.34
+      },
+      "plan": "raw/plans/s1-q80-Control-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:04:40.884Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 2236.560668,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.201,
+        "execution": 1509.972,
+        "first_batch": 1459.991,
+        "metrics_collection": 230.782,
+        "plan_render": 472.58
+      },
+      "plan": "raw/plans/s1-q27-Control-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:04:46.426Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 1759.558264,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.186,
+        "execution": 1250.578,
+        "first_batch": 1208.421,
+        "metrics_collection": 219.535,
+        "plan_render": 265.238
+      },
+      "plan": "raw/plans/s1-q27-A-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:04:48.801Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 2013.806209,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.569,
+        "execution": 1298.672,
+        "first_batch": 1265.742,
+        "metrics_collection": 264.103,
+        "plan_render": 429.437
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:04:51.437Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1976.692882,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.175,
+        "execution": 1473.7,
+        "first_batch": 1434.106,
+        "metrics_collection": 222.168,
+        "plan_render": 256.628
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:04:54.056Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 2014.3694490000003,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.549,
+        "execution": 1519.32,
+        "first_batch": 1473.233,
+        "metrics_collection": 217.38,
+        "plan_render": 255.098
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:04:56.749Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1972.109904,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.362,
+        "execution": 1274.211,
+        "first_batch": 1242.221,
+        "metrics_collection": 232.112,
+        "plan_render": 443.404
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:04:59.365Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 2182.255712,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.34,
+        "execution": 1343.385,
+        "first_batch": 1312.369,
+        "metrics_collection": 223.303,
+        "plan_render": 592.206
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:05:02.353Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 2701.609817,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.611,
+        "execution": 2145.908,
+        "first_batch": 2097.214,
+        "metrics_collection": 261.874,
+        "plan_render": 271.188
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:05:05.659Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 2097.191286,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.591,
+        "execution": 1581.084,
+        "first_batch": 1535.878,
+        "metrics_collection": 238.099,
+        "plan_render": 253.395
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:05:08.485Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 2008.2271870000002,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.984,
+        "execution": 1256.053,
+        "first_batch": 1223.758,
+        "metrics_collection": 227.959,
+        "plan_render": 502.207
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:05:11.094Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 2003.361044,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.718,
+        "execution": 1191.56,
+        "first_batch": 1159.336,
+        "metrics_collection": 228.981,
+        "plan_render": 560.076
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:05:13.698Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1915.90993,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.742,
+        "execution": 1403.455,
+        "first_batch": 1353.692,
+        "metrics_collection": 234.325,
+        "plan_render": 255.365
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:05:16.264Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 2130.0568270000003,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.592,
+        "execution": 1596.39,
+        "first_batch": 1552.457,
+        "metrics_collection": 242.951,
+        "plan_render": 267.098
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:05:19.034Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 2117.305601,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.376,
+        "execution": 1457.073,
+        "first_batch": 1422.978,
+        "metrics_collection": 248.672,
+        "plan_render": 388.147
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:05:21.804Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1922.273385,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.124,
+        "execution": 1255.628,
+        "first_batch": 1223.838,
+        "metrics_collection": 249.407,
+        "plan_render": 395.092
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:05:24.336Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1869.1089060000002,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.783,
+        "execution": 1336.478,
+        "first_batch": 1291.284,
+        "metrics_collection": 235.082,
+        "plan_render": 273.742
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:05:26.865Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1806.741653,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.999,
+        "execution": 1255.463,
+        "first_batch": 1209.893,
+        "metrics_collection": 270.834,
+        "plan_render": 257.41
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:05:29.285Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1996.192832,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.29,
+        "execution": 1261.802,
+        "first_batch": 1229.86,
+        "metrics_collection": 234.16,
+        "plan_render": 477.915
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:05:31.907Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 2006.618252,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.615,
+        "execution": 1358.521,
+        "first_batch": 1276.803,
+        "metrics_collection": 274.402,
+        "plan_render": 352.057
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:05:34.612Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1828.685814,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.722,
+        "execution": 1305.705,
+        "first_batch": 1265.352,
+        "metrics_collection": 232.3,
+        "plan_render": 265.933
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:05:37.093Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1980.492457,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 28.918,
+        "execution": 1418.261,
+        "first_batch": 1367.963,
+        "metrics_collection": 269.507,
+        "plan_render": 263.78
+      },
+      "plan": "raw/plans/s1-q27-A-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:05:39.727Z"
+    },
+    {
+      "session": 1,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 2115.1076550000002,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.093,
+        "execution": 1230.126,
+        "first_batch": 1199.14,
+        "metrics_collection": 260.834,
+        "plan_render": 601.032
+      },
+      "plan": "raw/plans/s1-q27-Control-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:05:42.606Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 1981.525539,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 20.61,
+        "execution": 1330.465,
+        "first_batch": 1305.837,
+        "metrics_collection": 174.19,
+        "plan_render": 456.236
+      },
+      "plan": "raw/plans/s2-q27-Control-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:07:38.646Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 1656.819348,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.551,
+        "execution": 1209.386,
+        "first_batch": 1173.013,
+        "metrics_collection": 175.052,
+        "plan_render": 248.808
+      },
+      "plan": "raw/plans/s2-q27-A-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:07:40.856Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1873.868452,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.714,
+        "execution": 1404.981,
+        "first_batch": 1364.121,
+        "metrics_collection": 198.318,
+        "plan_render": 246.833
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:07:43.320Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1788.78942,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.216,
+        "execution": 1185.311,
+        "first_batch": 1152.417,
+        "metrics_collection": 204.172,
+        "plan_render": 378.068
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:07:45.672Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1875.1588479999998,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 31.089,
+        "execution": 1224.429,
+        "first_batch": 1194.012,
+        "metrics_collection": 186.837,
+        "plan_render": 432.781
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:07:48.100Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1845.642319,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.463,
+        "execution": 1368.196,
+        "first_batch": 1325.559,
+        "metrics_collection": 201.062,
+        "plan_render": 252.894
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:07:50.589Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1876.2437300000001,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.413,
+        "execution": 1397.605,
+        "first_batch": 1352.842,
+        "metrics_collection": 207.45,
+        "plan_render": 248.753
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:07:53.096Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1928.901145,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.846,
+        "execution": 1241.371,
+        "first_batch": 1211.037,
+        "metrics_collection": 205.965,
+        "plan_render": 458.695
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:07:55.601Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1777.868964,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.254,
+        "execution": 1154.085,
+        "first_batch": 1123.705,
+        "metrics_collection": 208.527,
+        "plan_render": 393.98
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:07:57.940Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1843.2757560000002,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.741,
+        "execution": 1378.308,
+        "first_batch": 1334.294,
+        "metrics_collection": 198.522,
+        "plan_render": 242.681
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:08:00.363Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1755.270296,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 23.774,
+        "execution": 1263.554,
+        "first_batch": 1227.003,
+        "metrics_collection": 212.337,
+        "plan_render": 255.582
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:08:02.707Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 2059.929279,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.504,
+        "execution": 1222.13,
+        "first_batch": 1192.847,
+        "metrics_collection": 242.916,
+        "plan_render": 573.341
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:08:05.372Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1850.770244,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.935,
+        "execution": 1146.029,
+        "first_batch": 1116.517,
+        "metrics_collection": 209.404,
+        "plan_render": 472.377
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:08:07.895Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1933.082795,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.714,
+        "execution": 1452.204,
+        "first_batch": 1412.631,
+        "metrics_collection": 206.227,
+        "plan_render": 251.916
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:08:10.408Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1933.958736,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.24,
+        "execution": 1458.819,
+        "first_batch": 1416.29,
+        "metrics_collection": 206.685,
+        "plan_render": 244.191
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:08:12.992Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 2050.081231,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.046,
+        "execution": 1290.64,
+        "first_batch": 1260.957,
+        "metrics_collection": 215.77,
+        "plan_render": 522.6
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:08:15.640Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 2018.4166879999998,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.28,
+        "execution": 1342.047,
+        "first_batch": 1308.828,
+        "metrics_collection": 216.806,
+        "plan_render": 437.262
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:08:18.286Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1845.0743400000001,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.684,
+        "execution": 1351.077,
+        "first_batch": 1309.17,
+        "metrics_collection": 223.408,
+        "plan_render": 247.878
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:08:20.759Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1793.978819,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 24.64,
+        "execution": 1297.263,
+        "first_batch": 1256.939,
+        "metrics_collection": 213.678,
+        "plan_render": 258.376
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:08:23.186Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1881.462542,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.828,
+        "execution": 1287.27,
+        "first_batch": 1257.269,
+        "metrics_collection": 225.013,
+        "plan_render": 346.331
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:08:25.677Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "Control-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1986.553624,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 21.416,
+        "execution": 1249.037,
+        "first_batch": 1218.52,
+        "metrics_collection": 210.872,
+        "plan_render": 505.207
+      },
+      "plan": "raw/plans/s2-q27-Control-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:08:28.291Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q27",
+      "variant": "A-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1887.406642,
+      "row_count": 100,
+      "tasks": 96,
+      "timings_ms": {
+        "physical_planning": 22.825,
+        "execution": 1381.446,
+        "first_batch": 1320.399,
+        "metrics_collection": 227.651,
+        "plan_render": 255.452
+      },
+      "plan": "raw/plans/s2-q27-A-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:08:30.810Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 2063.05697,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.335,
+        "execution": 1409.902,
+        "first_batch": 1373.185,
+        "metrics_collection": 228.89,
+        "plan_render": 397.903
+      },
+      "plan": "raw/plans/s2-q80-Control-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:08:36.055Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 0,
+      "kind": "warmup",
+      "elapsed_ms": 1565.1057580000002,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 28.227,
+        "execution": 1025.316,
+        "first_batch": 984.725,
+        "metrics_collection": 236.876,
+        "plan_render": 274.667
+      },
+      "plan": "raw/plans/s2-q80-A-on-warmup-0.txt.gz",
+      "at": "2026-09-26T18:08:38.243Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1964.550494,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.045,
+        "execution": 1410.97,
+        "first_batch": 1372.481,
+        "metrics_collection": 243.889,
+        "plan_render": 282.624
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:08:40.856Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 1,
+      "kind": "measured",
+      "elapsed_ms": 1613.845041,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.996,
+        "execution": 953.352,
+        "first_batch": 918.487,
+        "metrics_collection": 227.606,
+        "plan_render": 406.869
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-1.txt.gz",
+      "at": "2026-09-26T18:08:43.059Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1735.1263800000002,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.827,
+        "execution": 915.662,
+        "first_batch": 881.439,
+        "metrics_collection": 242.519,
+        "plan_render": 551.095
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:08:45.365Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 2,
+      "kind": "measured",
+      "elapsed_ms": 1466.895787,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.533,
+        "execution": 909.351,
+        "first_batch": 871.359,
+        "metrics_collection": 248.013,
+        "plan_render": 281.966
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-2.txt.gz",
+      "at": "2026-09-26T18:08:47.469Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1850.407894,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.37,
+        "execution": 1282.024,
+        "first_batch": 1243.928,
+        "metrics_collection": 254.902,
+        "plan_render": 286.087
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:08:50.020Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 3,
+      "kind": "measured",
+      "elapsed_ms": 1531.7318559999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.656,
+        "execution": 796.597,
+        "first_batch": 762.133,
+        "metrics_collection": 235.074,
+        "plan_render": 474.384
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-3.txt.gz",
+      "at": "2026-09-26T18:08:52.207Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1574.808759,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.051,
+        "execution": 911.52,
+        "first_batch": 872.46,
+        "metrics_collection": 237.341,
+        "plan_render": 399.869
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:08:54.419Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 4,
+      "kind": "measured",
+      "elapsed_ms": 1447.666653,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.816,
+        "execution": 861.454,
+        "first_batch": 823.515,
+        "metrics_collection": 246.037,
+        "plan_render": 314.338
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-4.txt.gz",
+      "at": "2026-09-26T18:08:56.645Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1871.098438,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.377,
+        "execution": 1302.544,
+        "first_batch": 1262.772,
+        "metrics_collection": 251.959,
+        "plan_render": 289.198
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:08:59.191Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 5,
+      "kind": "measured",
+      "elapsed_ms": 1588.184867,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.362,
+        "execution": 876.573,
+        "first_batch": 841.437,
+        "metrics_collection": 243.582,
+        "plan_render": 441.646
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-5.txt.gz",
+      "at": "2026-09-26T18:09:01.440Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1488.217249,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.154,
+        "execution": 758.771,
+        "first_batch": 722.548,
+        "metrics_collection": 238.629,
+        "plan_render": 464.64
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:09:03.623Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 6,
+      "kind": "measured",
+      "elapsed_ms": 1482.8691059999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.335,
+        "execution": 915.6,
+        "first_batch": 874.228,
+        "metrics_collection": 244.797,
+        "plan_render": 296.111
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-6.txt.gz",
+      "at": "2026-09-26T18:09:05.734Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1355.2185319999999,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.084,
+        "execution": 789.57,
+        "first_batch": 751.191,
+        "metrics_collection": 250.034,
+        "plan_render": 288.503
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:09:07.763Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 7,
+      "kind": "measured",
+      "elapsed_ms": 1507.805343,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.977,
+        "execution": 765.078,
+        "first_batch": 732.382,
+        "metrics_collection": 251.736,
+        "plan_render": 464.988
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-7.txt.gz",
+      "at": "2026-09-26T18:09:09.901Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1458.084004,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 25.692,
+        "execution": 813.111,
+        "first_batch": 779.959,
+        "metrics_collection": 241.587,
+        "plan_render": 377.669
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:09:12.003Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 8,
+      "kind": "measured",
+      "elapsed_ms": 1394.044257,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.253,
+        "execution": 815.561,
+        "first_batch": 774.003,
+        "metrics_collection": 261.167,
+        "plan_render": 291.036
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-8.txt.gz",
+      "at": "2026-09-26T18:09:14.041Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1496.108115,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.642,
+        "execution": 948.342,
+        "first_batch": 907.752,
+        "metrics_collection": 243.487,
+        "plan_render": 276.615
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:09:16.336Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 9,
+      "kind": "measured",
+      "elapsed_ms": 1613.720795,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 26.911,
+        "execution": 809.654,
+        "first_batch": 767.176,
+        "metrics_collection": 249.815,
+        "plan_render": 527.315
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-9.txt.gz",
+      "at": "2026-09-26T18:09:18.704Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "Control-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1408.347553,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.557,
+        "execution": 791.69,
+        "first_batch": 756.397,
+        "metrics_collection": 248.553,
+        "plan_render": 340.52
+      },
+      "plan": "raw/plans/s2-q80-Control-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:09:20.824Z"
+    },
+    {
+      "session": 2,
+      "workers": 12,
+      "partitions": 15,
+      "query": "q80",
+      "variant": "A-on",
+      "pair": 10,
+      "kind": "measured",
+      "elapsed_ms": 1480.210198,
+      "row_count": 100,
+      "tasks": 106,
+      "timings_ms": {
+        "physical_planning": 27.543,
+        "execution": 886.807,
+        "first_batch": 847.656,
+        "metrics_collection": 252.99,
+        "plan_render": 312.836
+      },
+      "plan": "raw/plans/s2-q80-A-on-measured-10.txt.gz",
+      "at": "2026-09-26T18:09:22.981Z"
+    }
+  ],
+  "errors": [],
+  "updated_at": "2026-09-26T18:11:01.659Z",
+  "current_session": 2,
+  "dataset_snapshot": {
+    "files": 384,
+    "bytes": 12932037028,
+    "sha256": "b43e13ce24f84d2434775aabc83a73d8abd858037eda4f1210faa67c093db01f",
+    "captured_at": "2026-09-26T18:02:56.409Z"
+  },
+  "final_deployment": {
+    "workers": 12,
+    "pods": [
+      "13637716-d75d-4302-ab61-b9a1bc5271db",
+      "581c6829-c8ab-4a26-9459-2125499fd50a",
+      "633de438-94f0-4850-a3df-cfb1d5d8bcb0",
+      "9eae0a30-8871-4f5a-9455-7cb360f61562",
+      "a8fcf522-218d-463b-aa3d-12b0dafc83d4",
+      "b71695cb-1aea-4764-a768-57676358451b",
+      "bf059242-cc2f-4a62-9f77-41e26a3dee6d",
+      "d221faeb-15f6-436a-9229-39585f116eb0",
+      "e3b4c4ff-7ed4-48d1-a7c8-e49fcbeb6289",
+      "ef9c46cd-5d80-4380-a7bd-8520a6ee1915",
+      "f10c6db2-ffe0-4db3-aba5-dca6de2472c6",
+      "fa45ef95-d959-4c5b-bf9b-dd5592dd930e"
+    ],
+    "snapshot": "raw/deployments/restored-defaults-2026-09-26T18-10-58.208Z.json",
+    "at": "2026-09-26T18:11:01.659Z",
+    "session_settings": "Fresh worker defaults; temporary SQL settings cleared"
+  }
+}

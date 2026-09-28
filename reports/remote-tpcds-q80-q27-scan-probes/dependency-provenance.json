@@ -1,0 +1,57 @@
+{
+  "created_at": "2026-09-26T17:48:57.070Z",
+  "dependencies": {
+    "datafusion-physical-plan-55.0.0": {
+      "patch": "patches/datafusion-physical-plan-55.0.0.patch",
+      "patch_sha256": "2e918f1b7dd2795f2294b7346f114685489d48b414e73cd1c41a59666ed02c5b",
+      "files": {
+        "Cargo.toml": {
+          "original": "0f4164feed2a4fc26d369b9265816589e5fce312f526bd50e80d0a4e1736d6f3",
+          "instrumented": "c4c68d9e26c59d9e17903f77406c606b8988ff71530ea4c347c38c1de6e211fa"
+        },
+        "src/metrics.rs": {
+          "original": "47b3c587bd9992bfade61664f84f1d9ccc221fd43e02d2451876511e425ad311",
+          "instrumented": "aa0443a32dfa31b6b132a40c30296791247a739754da0a46581c8b23aa04eb1e"
+        },
+        "src/metrics/scan_probe.rs": {
+          "original": null,
+          "instrumented": "b0bee5d432d5461991a8fef511e0983bd5cb6b557a68dc969d7230538e893d5e"
+        },
+        "src/repartition/mod.rs": {
+          "original": "dd40d7cb4970465bc8848a940d1b99af66a8649ef2459c70b4358280131c745c",
+          "instrumented": "ce4411b88e5d9d62017a650e7a6e816ab4e3f926be9ce464cd10238df98741a0"
+        }
+      },
+      "registry_checksum": "5787e4fcff4adc4fce8948441103a99705018b49c8dff0720b650bd7a15da112"
+    },
+    "datafusion-datasource-parquet-55.0.0": {
+      "patch": "patches/datafusion-datasource-parquet-55.0.0.patch",
+      "patch_sha256": "f3ad0f7fdc8fdbc3105cad3c4e674b09c3f44e35e7f2e6e6c1fe7556d77bbd94",
+      "files": {
+        "src/metrics.rs": {
+          "original": "c2381160f3c5f2bc5218b6ce0f59d36d89c2ae3d29a30c2d979f3cb019acccc4",
+          "instrumented": "77691db4cefc47c51920cd22211b0dbe484f294531ce539648536d5063825aa0"
+        },
+        "src/opener/mod.rs": {
+          "original": "9c5cb58ce06a357679259e23b279877452f17e758db54e43704920d379642f8a",
+          "instrumented": "d27885e9a3785e625a2e1f19c6d4a06b94849dee316a2f9c5e7de918b4476640"
+        },
+        "src/push_decoder.rs": {
+          "original": "03c7592172555b520938017bda783f0fa71cb3b523200b3d2a7818d284f92008",
+          "instrumented": "509886f1cb28bc12c52af67d74225abb0c75fb04a4e48c33c907558f52248cb7"
+        },
+        "src/row_filter.rs": {
+          "original": "7ca8f0d40b66f0f92d47d3bdfcbe28018b16d00d9b49693fa1791be9a7c90aca",
+          "instrumented": "f4fb2fe9c31677d823af62a66533db780e10ce6f35ec1efeb90c54dd3593d247"
+        }
+      },
+      "registry_checksum": "3c0b0dc1453952952fd5c69ad1c7f6042176e69ed233011d47e07cf74ed0949e"
+    }
+  },
+  "sources_archive": "raw/dependency-sources.tar.gz",
+  "sources_sha256": "aca1ac64c09627151d604e10fd77f15d597f86418ab75404ba59fda74e977fa2",
+  "lockfile": "raw/Cargo.lock",
+  "lockfile_sha256": "a7228f74e744d7c2a4ab610c3864bb0a52c5060f3ea94cd3360599367b3a7776",
+  "dependency_versions_changed": false,
+  "added_dependency_edge": "datafusion-physical-plan -> existing rustix 1.1.4 (time feature)"
+}

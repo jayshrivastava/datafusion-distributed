@@ -193,21 +193,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             }
                         });
                         let physical = df.create_physical_plan().await.map_err(err)?;
+                        let planning_ms = start.elapsed().as_secs_f64() * 1000.0;
+                        let execution_start = Instant::now();
                         let mut stream =
                             execute_stream(physical.clone(), ctx.task_ctx()).map_err(err)?;
                         let mut count = 0;
+                        let mut first_batch_ms = None;
                         while let Some(batch) = stream.next().await {
                             count += batch.map_err(err)?.num_rows();
+                            first_batch_ms.get_or_insert_with(|| {
+                                execution_start.elapsed().as_secs_f64() * 1000.0
+                            });
                             info!("Gathered {count} rows, query still in progress..")
                         }
+                        let execution_ms = execution_start.elapsed().as_secs_f64() * 1000.0;
+                        let metrics_start = Instant::now();
                         let physical = rewrite_distributed_plan_with_metrics(
                             physical,
                             DistributedMetricsFormat::PerTask,
                         )
                         .await
                         .map_err(err)?;
+                        let metrics_ms = metrics_start.elapsed().as_secs_f64() * 1000.0;
+                        let render_start = Instant::now();
                         let stats_q_error = stats_estimation_q_error(&physical);
                         let plan = display_plan_ascii(physical.as_ref(), true);
+                        let render_ms = render_start.elapsed().as_secs_f64() * 1000.0;
                         drop(task);
 
                         let mut task_count = 0;
@@ -223,6 +234,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                         let elapsed = start.elapsed();
                         let ms = elapsed.as_secs_f64() * 1000.0;
+                        let first_batch = first_batch_ms
+                            .map(|ms| format!("{ms:.3}ms"))
+                            .unwrap_or_else(|| "none".to_owned());
+                        let plan = format!(
+                            "BenchmarkTimings: physical_planning={planning_ms:.3}ms, \
+                             execution={execution_ms:.3}ms, first_batch={first_batch}, \
+                             metrics_collection={metrics_ms:.3}ms, plan_render={render_ms:.3}ms\n{plan}"
+                        );
                         info!("Finished executing query:\n{sql}\n\n{plan}");
                         info!("Returned {count} rows in {ms} ms");
                         abort_notifier.finished();
