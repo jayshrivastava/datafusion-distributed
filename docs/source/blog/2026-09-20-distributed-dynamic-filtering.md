@@ -16,10 +16,10 @@ categories: [features]
 :::{grid-item}
 :class: sd-align-major-center
 
-DataFusion implements an optimization called [dynamic filtering](https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/)
-which applies runtime filters generated during execution. Dynamic filtering relies on a shared-memory
-to propagate updates from filter producers to consumers which means that it **does not automatically work** in
-a distributed environment. This blog post will cover how we implemented this important optimization in Datafusion-Distributed.
+DataFusion implements an optimization called [dynamic filtering](https://datafusion.apache.org/blog/2025/09/10/dynamic-filters/),
+which applies runtime filters generated during execution. Dynamic filtering relies on shared memory
+to propagate updates from filter producers to consumers, which means that it does not automatically work in
+a distributed environment. This blog post will cover how we implemented this important optimization in DataFusion-Distributed.
 :::
 
 :::{grid-item}
@@ -75,7 +75,7 @@ work by Adrian Garcia Badaracco in
 [#15566](https://github.com/apache/datafusion/pull/15566) and
 [#15568](https://github.com/apache/datafusion/pull/15568).
 
-For the non-collocated case (ie. the "remote" case), we cannot rely on
+For the non-collocated case (i.e., the "remote" case), we cannot rely on
 the standard mechanism:
 
 ```{figure} ../_static/images/dynamic-filtering/remote-probe-cannot-share-filter.svg
@@ -90,16 +90,16 @@ meaning extra work, such as serialization overhead and network transfer, is incu
 
 In addition to hash joins, other operators like sorts and aggregates may
 publish runtime filters/bounds to push down. In this post, we describe how DataFusion-Distributed
-collects and carries these filters across process and network boundaries and evaluate
+collects and carries these filters across process and network boundaries and evaluates
 performance using [TPC-DS](https://www.tpc.org/tpcds/) as a benchmark.
 
 
 ## Design
 
-There's two main problems to solve:
+There are two main problems to solve:
 
-1. **Correctness:** Producers may be partitioned cross different workers and produce
-   distinct expressions. What filters do we propgate to consumers? How do we ensure
+1. **Correctness:** Producers may be partitioned across different workers and produce
+   distinct expressions. What filters do we propagate to consumers? How do we ensure
    we prune the correct rows?
 2. **Routing:** Consumers may be partitioned across workers and be partitioned
    differently than the producers. How do we route filters from producers to
@@ -107,6 +107,7 @@ There's two main problems to solve:
 
 The answer to these problems, implemented in DataFusion-Distributed, is similar to
 the approach taken by [Trino](https://trino.io/docs/current/admin/dynamic-filtering.html) and Spark:
+
 1. **Planning**: Discover producer-consumer relationships
 2. **Collecting and Merging**: Get filter expressions from producers and merge them
 3. **Forwarding and Applying**: Propagate merged expressions to consumers
@@ -134,11 +135,12 @@ two producer stages and one consumer stage consuming both filters:
     └──────────────────────────────
 ```
 
-At planning time, producer-consumer relationships are discovered using DataFusion native APIs:
+At planning time, producer-consumer relationships are discovered using DataFusion-native APIs:
+
 - `PhysicalExpr::expression_id()` uniquely identifies the same logical filter
   among plan nodes ([#21807](https://github.com/apache/datafusion/pull/21807)).
 - `ExecutionPlan::apply_expressions()` finds expressions owned by consumers
-  ([#24018](https://github.com/apache/datafusion/pull/24018), builds on work by Lía Castañeda in [#20337](https://github.com/apache/datafusion/pull/20337)).
+  ([#24018](https://github.com/apache/datafusion/pull/24018)), building on work by Lía Castañeda in [#20337](https://github.com/apache/datafusion/pull/20337).
 - `ExecutionPlan::dynamic_expressions_produced()` identifies dynamic filter producers
   ([#24068](https://github.com/apache/datafusion/pull/24068)).
 
@@ -159,24 +161,29 @@ producer type, as summarized below.
 :align: center
 
 * - Producer shape
-  - Wait for a complete filter?
+  - Wait for All Producers?
+  - Continuous Forwarding?
   - Merge Behavior
 * - Partitioned hash join
   - Yes
+  - No, forward once
   - F<sub>0</sub> OR F<sub>1</sub> OR ... OR F<sub>n</sub> {bdg-primary}`Safest default`
 * - CollectLeft hash join
-  - Yes
+  - No
+  - No, forward once
   - Forward F<sub>first</sub>
 * - MIN/MAX aggregate
   - No
+  - Yes, forward all updates
   - F<sub>0</sub> AND F<sub>1</sub> AND ... AND F<sub>n</sub>
 * - TopK sort
   - No
+  - Yes, forward all updates
   - F<sub>0</sub> AND F<sub>1</sub> AND ... AND F<sub>n</sub>
 ```
 
 :::{div} table-number
-**Table 1**
+Table 1
 :::
 
 #### CollectLeft Hash Join
@@ -223,7 +230,7 @@ CASE hash(row) % 4
 END
 ```
 
-Two tasks therefore create eight effective partitions, currenty represented by
+Two tasks therefore create eight effective partitions, currently represented by
 OR-ing two per-task expressions:
 
 ```text
@@ -269,7 +276,7 @@ END
 ```
 
 The global `CASE` preserves selectivity by preserving all eight partitions, but it
-tightly couples DataFusion-Distributed to the underling `CASE` expressions, which
+tightly couples DataFusion-Distributed to the underlying `CASE` expressions, which
 may change in the future. It can also create hundreds of `CASE` branches whose
 evaluation cost could counteract the benefits of early pruning. The simpler global OR is therefore
 the current default. Improving selectivity remains potential future work as upstream
@@ -328,6 +335,7 @@ We benchmarked the implementation using TPC-DS at `scale_factor=10` in two scena
 Figure 7 shows the ten largest local improvements.
 
 `parquet={on,off}` refers to the following DataFusion configuration options:
+
 - `datafusion.execution.parquet.pushdown_filters`: evaluates predicates during Parquet decoding
 - `datafusion.execution.parquet.reorder_filters`: heuristically reorders pushed-down predicates to reduce evaluation cost
 
@@ -365,13 +373,13 @@ shows a clear improvement via metrics:
 ```
 
 :::{div} table-number
-**Table 2**
+Table 2
 :::
 
 Latency improved **2.72x**, and more than **90%** of network traffic disappeared
 before the joins and shuffles.
 
-Despite an average improvemenet of `1.20x` with `parquet=on`, the optimization is still not a consistent win. Figure 8 shows the ten largest
+Despite an average improvement of `1.20x` with `parquet=on`, the optimization is still not a consistent win. Figure 8 shows the ten largest
 regressions:
 
 ```{figure} ../_static/images/dynamic-filtering/local-slowest-speedup.svg
@@ -399,7 +407,7 @@ expensive to evaluate:
 ```
 
 :::{div} table-number
-**Table 3**
+Table 3
 :::
 
 The scan spends **4.61 seconds** of summed task time evaluating the predicate, but
@@ -408,7 +416,7 @@ compute time is basically unchanged and does not repay that filter evaluation co
 
 ### Distributed Benchmark Results
 
-In the distributed scenario, we re-ran the 10 queries which demonstrated the best local improvement. The
+In the distributed scenario, we re-ran the ten queries that demonstrated the best local improvement. The
 results are summarized in Figure 9.
 
 ```{figure} ../_static/images/dynamic-filtering/remote-tpcds-speedup.svg
@@ -421,7 +429,7 @@ results are summarized in Figure 9.
 Only five queries reproduced a performance gain (in any `parquet` configuration).
 
 We investigated Q80 to see why. Despite the higher network latency in a non-local scenario,
-dynamic filters arrived on time and pruned the same amount of rows. The main difference was
+dynamic filters arrived on time and pruned the same number of rows. The main difference was
 in the scan behavior.
 
 ```{table}
@@ -442,7 +450,7 @@ in the scan behavior.
 ```
 
 :::{div} table-number
-**Table 4**
+Table 4
 :::
 
 Q80 removes **98%** of critical scan rows and **91%** of network traffic, yet the query
@@ -457,8 +465,8 @@ cause. Figure 10 shows the actual reason for the increased latency.
 ```
 
 Without dynamic filtering, one combined S3 range read is used per file. With filtering, the
-parquet data source issues five dependent reads. Each red marker in Figure 10 represents a
-separate S3 call. 5 synchronous I/O operations are cheap against warm local storage, but expensive
+Parquet data source issues five dependent reads. Each red marker in Figure 10 represents a
+separate S3 call. Five synchronous I/O operations are cheap against warm local storage, but expensive
 when the data needs to be downloaded. This overhead turns Q80's local **2.72x** improvement into a
 **0.855x** regression in a distributed setting. Fortunately, [DataFusion issue #24393](https://github.com/apache/datafusion/issues/24393)
 tracks this exact problem, and DataFusion makes it easy to implement a custom data source
@@ -466,17 +474,17 @@ that does not use this I/O pattern.
 
 ## Conclusion
 
-distributed dynamic filtering is implemented with datafusion's native physical
-plan and expression apis. colocated filters are automatically propagated to consumers via shared-memory, while
-remote filters require merging and forwarding via the coorindator. 
+Distributed dynamic filtering is implemented with DataFusion's native physical
+plan and expression APIs. Colocated filters are automatically propagated to consumers via shared memory, while
+remote filters require merging and forwarding via the coordinator.
 
-For dynamic filtering to be effective, it is important to consider the following: 
+For dynamic filtering to be effective, it is important to consider the following:
 
-1. Dynamic filtering is most valuable when it prevent rows from being read and decoded. Pushing down
-   to the decoder level or remote data sources will yeild the best results.
+1. Dynamic filtering is most valuable when it prevents rows from being read and decoded. Pushing down
+   to the decoder level or remote data sources will yield the best results.
 2. Dynamic filtering is a tradeoff. It wins when early pruning saves more work
    than the filter propagation and predicate evaluation cost.
-3. Connector and leaf-node implementation matters. Access patterns and
+3. Connector and leaf-node implementations matter. Access patterns and
    predicate pushdown can make or break the optimization.
 
 Special thanks to Andrew Lamb ([@alamb]), Adrian Garcia Badaracco
