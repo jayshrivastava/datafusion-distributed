@@ -151,6 +151,54 @@
         "figure img[src$='.svg'], section[data-class~='figure'] img[src$='.svg']",
       )
       .forEach(enhanceFigure);
+
+    document
+      .querySelectorAll("section[data-class~='takeaway-reveal']")
+      .forEach((slide) => {
+        if (slide.dataset.revealReady === "true") {
+          return;
+        }
+        slide.dataset.revealReady = "true";
+
+        const bullets = Array.from(slide.querySelectorAll("ol > li"));
+        let state = 0;
+
+        const render = () => {
+          bullets.forEach((bullet, index) => {
+            const revealed = index < state;
+            bullet.classList.toggle("is-revealed", revealed);
+            bullet.setAttribute("aria-hidden", String(!revealed));
+          });
+          slide.dataset.revealState = String(state);
+        };
+
+        const handleArrowKey = (event) => {
+          if (
+            !slide.closest("svg.bespoke-marp-active") ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey
+          ) {
+            return;
+          }
+
+          if (event.key === "ArrowRight" && state < bullets.length) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            state += 1;
+            render();
+          } else if (event.key === "ArrowLeft" && state > 0) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            state -= 1;
+            render();
+          }
+        };
+
+        document.addEventListener("keydown", handleArrowKey, true);
+        render();
+      });
   }
 
   if (document.readyState === "loading") {
